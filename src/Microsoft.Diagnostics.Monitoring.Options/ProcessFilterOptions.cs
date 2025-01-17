@@ -1,6 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -42,27 +41,59 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
         [Display(
             ResourceType = typeof(OptionsDisplayStrings),
             Description = nameof(OptionsDisplayStrings.DisplayAttributeDescription_ProcessFilterOptions_Filters))]
-        public List<ProcessFilterDescriptor> Filters { get; set; } = new List<ProcessFilterDescriptor>(0);
+        public List<ProcessFilterDescriptor> Filters { get; set; } = [];
     }
 
-    public sealed class ProcessFilterDescriptor
+    public sealed partial class ProcessFilterDescriptor
     {
         [Display(
             ResourceType = typeof(OptionsDisplayStrings),
             Description = nameof(OptionsDisplayStrings.DisplayAttributeDescription_ProcessFilterDescriptor_Key))]
-        [Required]
-        public ProcessFilterKey Key { get;set; }
+        public ProcessFilterKey Key { get; set; }
 
         [Display(
             ResourceType = typeof(OptionsDisplayStrings),
             Description = nameof(OptionsDisplayStrings.DisplayAttributeDescription_ProcessFilterDescriptor_Value))]
-        [Required]
-        public string Value { get; set; }
+        public string? Value { get; set; }
 
         [Display(
             ResourceType = typeof(OptionsDisplayStrings),
             Description = nameof(OptionsDisplayStrings.DisplayAttributeDescription_ProcessFilterDescriptor_MatchType))]
         [DefaultValue(ProcessFilterType.Exact)]
         public ProcessFilterType MatchType { get; set; } = ProcessFilterType.Exact;
+
+        [Display(
+            ResourceType = typeof(OptionsDisplayStrings),
+            Description = nameof(OptionsDisplayStrings.DisplayAttributeDescription_ProcessFilterDescriptor_ProcessName))]
+        public string? ProcessName { get; set; }
+
+        [Display(
+            ResourceType = typeof(OptionsDisplayStrings),
+            Description = nameof(OptionsDisplayStrings.DisplayAttributeDescription_ProcessFilterDescriptor_ProcessId))]
+        public string? ProcessId { get; set; }
+
+        [Display(
+            ResourceType = typeof(OptionsDisplayStrings),
+            Description = nameof(OptionsDisplayStrings.DisplayAttributeDescription_ProcessFilterDescriptor_CommandLine))]
+        public string? CommandLine { get; set; }
+    }
+
+    partial class ProcessFilterDescriptor : IValidatableObject
+    {
+        IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
+        {
+            List<ValidationResult> results = new();
+
+            if (string.IsNullOrWhiteSpace(CommandLine) && string.IsNullOrWhiteSpace(ProcessId) && string.IsNullOrWhiteSpace(ProcessName))
+            {
+                if (string.IsNullOrWhiteSpace(Value))
+                {
+                    results.Add(new ValidationResult(
+                        string.Format(OptionsDisplayStrings.ErrorMessage_FilterValueMissing)));
+                }
+            }
+
+            return results;
+        }
     }
 }

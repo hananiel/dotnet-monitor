@@ -1,21 +1,21 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 
-using Microsoft.Diagnostics.Monitoring.EventPipe;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace Microsoft.Diagnostics.Monitoring.WebApi
 {
     internal static class PrometheusDataModel
     {
-        private const char SeperatorChar = '_';
+        private const char SeparatorChar = '_';
+        private const char EqualsChar = '=';
+        private const char QuotationChar = '"';
+        private const char SlashChar = '\\';
+        private const char NewlineChar = '\n';
 
         private static readonly Dictionary<string, string> KnownUnits = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -26,35 +26,76 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
             {"%", "ratio" },
         };
 
-        public static string Normalize(string metricProvider, string metric, string unit, double value, out string metricValue)
+        public static string GetPrometheusNormalizedName(string metricProvider, string metric, string unit)
         {
-            string baseUnit = null;
+            string? baseUnit = null;
             if ((unit != null) && (!KnownUnits.TryGetValue(unit, out baseUnit)))
             {
                 baseUnit = unit;
             }
-            if (string.Equals(unit, "MB", StringComparison.OrdinalIgnoreCase))
-            {
-                value *= 1_000_000; //Note that the metric uses MB not MiB
-            }
-            metricValue = value.ToString(CultureInfo.InvariantCulture);
-
-            bool hasUnit = !string.IsNullOrEmpty(baseUnit);
 
             //The +1's account for separators
             //CONSIDER Can we optimize with Span/stackalloc here instead of using StringBuilder?
-            StringBuilder builder = new StringBuilder(metricProvider.Length + metric.Length + (hasUnit ? baseUnit.Length + 1 : 0) + 1);
+            StringBuilder builder = new StringBuilder(metricProvider.Length + metric.Length + (!string.IsNullOrEmpty(baseUnit) ? baseUnit.Length + 1 : 0) + 1);
 
             NormalizeString(builder, metricProvider, isProvider: true);
-            builder.Append(SeperatorChar);
+            builder.Append(SeparatorChar);
             NormalizeString(builder, metric, isProvider: false);
-            if (hasUnit)
+            if (!string.IsNullOrEmpty(baseUnit))
             {
-                builder.Append(SeperatorChar);
+                builder.Append(SeparatorChar);
                 NormalizeString(builder, baseUnit, isProvider: false);
             }
 
             return builder.ToString();
+        }
+
+        public static string GetPrometheusNormalizedLabel(string key, string value)
+        {
+            StringBuilder builder = new StringBuilder(key.Length + 2 * value.Length + 3); // Includes =,", and ", as well as extra padding for potential escape characters in the value
+
+            NormalizeString(builder, key, isProvider: false);
+            builder.Append(EqualsChar);
+            builder.Append(QuotationChar);
+            NormalizeLabelValue(builder, value);
+            builder.Append(QuotationChar);
+
+            return builder.ToString();
+        }
+
+        public static string GetPrometheusNormalizedValue(string unit, double value)
+        {
+            if (string.Equals(unit, "MB", StringComparison.OrdinalIgnoreCase))
+            {
+                value *= 1_000_000; //Note that the metric uses MB not MiB
+            }
+            return value.ToString(CultureInfo.InvariantCulture);
+        }
+
+        private static void NormalizeLabelValue(StringBuilder builder, string value)
+        {
+            for (int i = 0; i < value.Length; i++)
+            {
+                if (value[i] == SlashChar)
+                {
+                    builder.Append(SlashChar);
+                    builder.Append(SlashChar);
+                }
+                else if (value[i] == NewlineChar)
+                {
+                    builder.Append(SlashChar);
+                    builder.Append('n');
+                }
+                else if (value[i] == QuotationChar)
+                {
+                    builder.Append(SlashChar);
+                    builder.Append(QuotationChar);
+                }
+                else
+                {
+                    builder.Append(value[i]);
+                }
+            }
         }
 
         private static void NormalizeString(StringBuilder builder, string entity, bool isProvider)
@@ -72,14 +113,14 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
                 }
                 else if (!isProvider)
                 {
-                    builder.Append(SeperatorChar);
+                    builder.Append(SeparatorChar);
                 }
             }
 
             //CONSIDER Completely invalid providers such as '!@#$' will become '_'. Should we have a more obvious value for this?
             if (allInvalid && isProvider)
             {
-                builder.Append(SeperatorChar);
+                builder.Append(SeparatorChar);
             }
         }
         private static bool IsValidChar(char c, bool isFirst)
@@ -89,7 +130,7 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
                 return false;
             }
 
-            if (c == SeperatorChar)
+            if (c == SeparatorChar)
             {
                 return true;
             }

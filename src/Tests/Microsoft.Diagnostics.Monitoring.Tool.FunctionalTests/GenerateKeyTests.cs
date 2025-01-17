@@ -1,6 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Monitoring.TestCommon;
 using Microsoft.Diagnostics.Monitoring.TestCommon.Options;
@@ -8,6 +7,7 @@ using Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.Fixtures;
 using Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.Runners;
 using Microsoft.Diagnostics.Monitoring.WebApi;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.IdentityModel.Validators;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Threading;
@@ -17,6 +17,7 @@ using Xunit.Abstractions;
 
 namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
 {
+    [TargetFrameworkMonikerTrait(TargetFrameworkMonikerExtensions.CurrentTargetFrameworkMoniker)]
     [Collection(DefaultCollectionFixture.Name)]
     public class GenerateKeyTests
     {
@@ -34,6 +35,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
         [InlineData(OutputFormat.Cmd)]
         [InlineData(OutputFormat.PowerShell)]
         [InlineData(OutputFormat.Shell)]
+        [InlineData(OutputFormat.MachineJson)]
         public async Task GenerateKey(OutputFormat? format)
         {
             using CancellationTokenSource cancellationTokenSource = new CancellationTokenSource(TestTimeouts.OperationTimeout);
@@ -47,9 +49,13 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
             string tokenStr = await toolRunner.GetBearerToken(cancellationToken);
             Assert.NotNull(tokenStr);
 
-            string formatStr = await toolRunner.GetFormat(cancellationToken);
-            Assert.NotNull(formatStr);
-            Assert.Equal(toolRunner.FormatUsed.ToString(), formatStr);
+            // MachineJson doesn't have a format string header
+            if (format != OutputFormat.MachineJson)
+            {
+                string formatStr = await toolRunner.GetFormat(cancellationToken);
+                Assert.NotNull(formatStr);
+                Assert.Equal(toolRunner.FormatUsed.ToString(), formatStr);
+            }
 
             string subject = await toolRunner.GetSubject(cancellationToken);
             Assert.NotNull(subject);
@@ -71,8 +77,10 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
                 ValidAlgorithms = JwtAlgorithmChecker.GetAllowedJwsAlgorithmList(),
 
                 // Issuer Settings
-                ValidateIssuer = true, // This setting differs from actual token validation in the product because we want to make sure we set our Issuer
+                ValidateIssuer = true,
                 ValidIssuer = AuthConstants.ApiKeyJwtInternalIssuer,
+
+                // Issuer Signing Key Settings
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKeys = new SecurityKey[] { validatingKey },
                 TryAllIssuerSigningKeys = true,
@@ -83,15 +91,13 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
 
                 // Other Settings
                 ValidateActor = false,
-                ValidateLifetime = false,
+                ValidateLifetime = true,
             };
+            // Required for CodeQL. 
+            tokenValidationParams.EnableAadSigningKeyIssuerValidation();
+
             ClaimsPrincipal claimsPrinciple = tokenHandler.ValidateToken(tokenStr, tokenValidationParams, out SecurityToken validatedToken);
 
-            ITestOutputHelper validationHelper = new PrefixedOutputHelper(_outputHelper, "[JWT Validation] ");
-            foreach (Claim c in claimsPrinciple.Claims)
-            {
-                validationHelper.WriteLine($"Token Claim: {c.Issuer}:{c.Type}=[{c.ValueType}]{c.Value}");
-            }
             Assert.True(claimsPrinciple.HasClaim(ClaimTypes.NameIdentifier, subject));
         }
     }

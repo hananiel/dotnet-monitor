@@ -1,6 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.AspNetCore.Mvc.ActionConstraints;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,7 +13,7 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
     /// To do this, we determine what port the request is on, and disallow other actions on the prometheus port.
     /// </summary>
     [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
-    internal sealed class HostRestrictionAttribute : Attribute, IActionConstraintFactory
+    public sealed class HostRestrictionAttribute : Attribute, IActionConstraintFactory
     {
         private sealed class HostConstraint : IActionConstraint
         {

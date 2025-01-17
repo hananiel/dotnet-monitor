@@ -1,22 +1,21 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
+
+#nullable enable
 
 using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Text;
 
 namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Options
 {
     [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field | AttributeTargets.Parameter, AllowMultiple = false)]
-    internal class RegularExpressionsAttribute : RegularExpressionAttribute
+    internal sealed class RegularExpressionsAttribute : RegularExpressionAttribute
     {
         public RegularExpressionsAttribute(string pattern) : base(pattern)
         {
         }
 
-        public override bool IsValid(object value)
+        public override bool IsValid(object? value)
         {
             if (value is string[] values)
             {

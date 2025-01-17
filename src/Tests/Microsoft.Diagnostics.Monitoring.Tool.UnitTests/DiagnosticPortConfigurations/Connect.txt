@@ -1,0 +1,3 @@
+"DiagnosticPort": {
+  "ConnectionMode": "Connect"
+}

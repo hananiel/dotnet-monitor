@@ -1,11 +1,8 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Monitoring.WebApi.Models;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 
 namespace Microsoft.Diagnostics.Monitoring.WebApi.Validation
@@ -14,19 +11,19 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi.Validation
     {
         public static bool ValidateProvider(GlobalCounterOptions counterOptions,
             EventPipeProvider provider,
-            out string errorMessage)
+            [NotNullWhen(false)] out string? errorMessage)
         {
             errorMessage = null;
 
-            if (provider.Arguments?.TryGetValue("EventCounterIntervalSec", out string intervalValue) == true)
+            if (provider.Arguments?.TryGetValue("EventCounterIntervalSec", out string? intervalValue) == true)
             {
                 if (float.TryParse(intervalValue, out float intervalSeconds) &&
-                    intervalSeconds != counterOptions.GetIntervalSeconds())
+                    intervalSeconds != counterOptions.GetProviderSpecificInterval(provider.Name))
                 {
                     errorMessage = string.Format(CultureInfo.CurrentCulture,
                         Strings.ErrorMessage_InvalidMetricInterval,
                         provider.Name,
-                        counterOptions.GetIntervalSeconds());
+                        counterOptions.GetProviderSpecificInterval(provider.Name));
                     return false;
                 }
             }

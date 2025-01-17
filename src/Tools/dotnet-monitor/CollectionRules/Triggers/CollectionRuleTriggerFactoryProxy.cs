@@ -1,6 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Monitoring.WebApi;
 using System;
@@ -23,7 +22,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Triggers
         }
 
         /// <inheritdoc/>
-        public ICollectionRuleTrigger Create(IEndpointInfo endpointInfo, Action callback, object options)
+        public ICollectionRuleTrigger Create(IEndpointInfo endpointInfo, Action callback, object? options)
         {
             return _factory.Create(endpointInfo, callback);
         }
@@ -49,6 +48,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Triggers
             _factory = factory;
         }
 
+#nullable disable
         /// <inheritdoc/>
         public ICollectionRuleTrigger Create(IEndpointInfo endpointInfo, Action callback, object options)
         {
@@ -61,5 +61,6 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Triggers
 
             return _factory.Create(endpointInfo, callback, typedOptions);
         }
+#nullable restore
     }
 }

@@ -2,7 +2,8 @@
 
 The Traces API enables collecting `.nettrace` formatted traces without using a profiler.
 
-> **NOTE:** Process information (IDs, names, environment, etc) may change between invocations of these APIs. Processes may start or stop between API invocations, causing this information to change.
+> [!NOTE]
+> Process information (IDs, names, environment, etc) may change between invocations of these APIs. Processes may start or stop between API invocations, causing this information to change.
 
 | Operation | Description |
 |---|---|

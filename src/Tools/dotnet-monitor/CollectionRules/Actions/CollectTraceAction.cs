@@ -1,6 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Monitoring.EventPipe;
 using Microsoft.Diagnostics.Monitoring.WebApi;
@@ -9,10 +8,7 @@ using Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Options.Actions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Threading;
-using System.Threading.Tasks;
 using Utils = Microsoft.Diagnostics.Monitoring.WebApi.Utilities;
 
 namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Actions
@@ -22,7 +18,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Actions
     {
         private readonly IServiceProvider _serviceProvider;
 
-        public ICollectionRuleAction Create(IEndpointInfo endpointInfo, CollectTraceOptions options)
+        public ICollectionRuleAction Create(IProcessInfo processInfo, CollectTraceOptions options)
         {
             if (null == options)
             {
@@ -32,7 +28,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Actions
             ValidationContext context = new(options, _serviceProvider, items: null);
             Validator.ValidateObject(options, context, validateAllProperties: true);
 
-            return new CollectTraceAction(_serviceProvider, endpointInfo, options);
+            return new CollectTraceAction(_serviceProvider, processInfo, options);
         }
 
         public CollectTraceActionFactory(IServiceProvider serviceProvider)
@@ -41,72 +37,73 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Actions
         }
 
         private sealed class CollectTraceAction :
-            CollectionRuleActionBase<CollectTraceOptions>
+            CollectionRuleEgressActionBase<CollectTraceOptions>
         {
-            private readonly IServiceProvider _serviceProvider;
             private readonly IOptionsMonitor<GlobalCounterOptions> _counterOptions;
-            private readonly OperationTrackerService _operationTrackerService;
 
-            public CollectTraceAction(IServiceProvider serviceProvider, IEndpointInfo endpointInfo, CollectTraceOptions options)
-                : base(endpointInfo, options)
+            public CollectTraceAction(IServiceProvider serviceProvider, IProcessInfo processInfo, CollectTraceOptions options)
+                : base(serviceProvider, processInfo, options)
             {
-                _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
-                _counterOptions = _serviceProvider.GetRequiredService<IOptionsMonitor<GlobalCounterOptions>>();
-                _operationTrackerService = _serviceProvider.GetRequiredService<OperationTrackerService>();
+                _counterOptions = serviceProvider.GetRequiredService<IOptionsMonitor<GlobalCounterOptions>>();
             }
 
-            protected override async Task<CollectionRuleActionResult> ExecuteCoreAsync(
-                TaskCompletionSource<object> startCompletionSource,
-                CancellationToken token)
+            protected override EgressOperation CreateArtifactOperation(CollectionRuleMetadata? collectionRuleMetadata)
             {
                 TimeSpan duration = Options.Duration.GetValueOrDefault(TimeSpan.Parse(CollectTraceOptionsDefaults.Duration));
-                string egressProvider = Options.Egress;
 
                 MonitoringSourceConfiguration configuration;
+
+                TraceEventFilter? stoppingEvent = null;
 
                 if (Options.Profile.HasValue)
                 {
                     TraceProfile profile = Options.Profile.Value;
-                    float metricsIntervalSeconds = _counterOptions.CurrentValue.GetIntervalSeconds();
-
-                    configuration = TraceUtilities.GetTraceConfiguration(profile, metricsIntervalSeconds);
+                    configuration = TraceUtilities.GetTraceConfiguration(profile, _counterOptions.CurrentValue);
                 }
                 else
                 {
+#nullable disable
                     EventPipeProvider[] optionsProviders = Options.Providers.ToArray();
+#nullable restore
                     bool requestRundown = Options.RequestRundown.GetValueOrDefault(CollectTraceOptionsDefaults.RequestRundown);
                     int bufferSizeMegabytes = Options.BufferSizeMegabytes.GetValueOrDefault(CollectTraceOptionsDefaults.BufferSizeMegabytes);
-
                     configuration = TraceUtilities.GetTraceConfiguration(optionsProviders, requestRundown, bufferSizeMegabytes);
-                }
 
-                string fileName = TraceUtilities.GenerateTraceFileName(EndpointInfo);
+                    stoppingEvent = Options.StoppingEvent;
+                }
 
                 KeyValueLogScope scope = Utils.CreateArtifactScope(Utils.ArtifactType_Trace, EndpointInfo);
 
-                EgressOperation egressOperation = new EgressOperation(
-                    async (outputStream, token) =>
-                    {
-                        using IDisposable operationRegistration = _operationTrackerService.Register(EndpointInfo);
-                        await TraceUtilities.CaptureTraceAsync(startCompletionSource, EndpointInfo, configuration, duration, outputStream, token);
-                    },
-                    egressProvider,
-                    fileName,
-                    EndpointInfo,
-                    ContentTypes.ApplicationOctetStream,
-                    scope);
-
-                ExecutionResult<EgressResult> result = await egressOperation.ExecuteAsync(_serviceProvider, token);
-
-                string traceFilePath = result.Result.Value;
-
-                return new CollectionRuleActionResult()
+                ITraceOperationFactory operationFactory = ServiceProvider.GetRequiredService<ITraceOperationFactory>();
+                IArtifactOperation operation;
+                if (stoppingEvent == null)
                 {
-                    OutputValues = new Dictionary<string, string>(StringComparer.Ordinal)
-                    {
-                        { CollectionRuleActionConstants.EgressPathOutputValueName, traceFilePath }
-                    }
-                };
+                    operation = operationFactory.Create(
+                        EndpointInfo,
+                        configuration,
+                        duration);
+                }
+                else
+                {
+                    operation = operationFactory.Create(
+                        EndpointInfo,
+                        configuration,
+                        duration,
+                        stoppingEvent.ProviderName,
+                        stoppingEvent.EventName,
+                        stoppingEvent.PayloadFilter);
+                }
+
+                EgressOperation egressOperation = new EgressOperation(
+                    operation,
+                    Options.Egress,
+                    Options.ArtifactName,
+                    ProcessInfo,
+                    scope,
+                    null,
+                    collectionRuleMetadata);
+
+                return egressOperation;
             }
         }
     }

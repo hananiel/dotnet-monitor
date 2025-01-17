@@ -1,10 +1,8 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Monitoring.Options;
 using Microsoft.Diagnostics.Monitoring.TestCommon;
-using Microsoft.Diagnostics.Monitoring.WebApi;
 using Microsoft.Diagnostics.Monitoring.WebApi.Models;
 using Microsoft.Extensions.Logging;
 using System;
@@ -24,7 +22,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.HttpApi
         /// <summary>
         /// GET /
         /// </summary>
-        public static Task GetRootAsync(this ApiClient client)
+        public static Task<HttpResponseMessage> GetRootAsync(this ApiClient client)
         {
             return client.GetRootAsync(TestTimeouts.HttpApi);
         }
@@ -32,10 +30,11 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.HttpApi
         /// <summary>
         /// GET /
         /// </summary>
-        public static async Task GetRootAsync(this ApiClient client, TimeSpan timeout)
+        public static async Task<HttpResponseMessage> GetRootAsync(this ApiClient client, TimeSpan timeout)
         {
             using CancellationTokenSource timeoutSource = new(timeout);
-            await client.GetRootAsync(timeoutSource.Token).ConfigureAwait(false);
+            var resp = await client.GetRootAsync(timeoutSource.Token).ConfigureAwait(false);
+            return resp;
         }
 
         /// <summary>
@@ -138,7 +137,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.HttpApi
 
         /// <summary>
         /// Capable of getting every combination of process query: PID, UID, and/or Name
-        /// Get /process?pid={pid}&uid={uid}&name={name}
+        /// Get <![CDATA[/process?pid={pid}&uid={uid}&name={name}]]>
         /// </summary>
         public static async Task<ProcessInfo> GetProcessAsync(this ApiClient client, int? pid, Guid? uid, string name, TimeSpan timeout)
         {
@@ -147,7 +146,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.HttpApi
         }
 
         /// <summary>
-        /// Get /process?pid={pid}&uid={uid}&name={name} with retry attempts.
+        /// Get <![CDATA[/process?pid={pid}&uid={uid}&name={name}]]> with retry attempts.
         /// </summary>
         public static async Task<ProcessInfo> GetProcessWithRetryAsync(this ApiClient client, ITestOutputHelper outputHelper, int? pid = null, Guid? uid = null, string name = null, int maxAttempts = 5)
         {
@@ -181,6 +180,8 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.HttpApi
                 {
                     return processInfo;
                 }
+
+                await Task.Delay(TimeSpan.FromSeconds(1)).ConfigureAwait(false);
             }
 
             throw new InvalidOperationException("Unable to get process information that has a process name.");
@@ -221,7 +222,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.HttpApi
         }
 
         /// <summary>
-        /// Get /dump?pid={pid}&type={dumpType}
+        /// Get <![CDATA[/dump?pid={pid}&type={dumpType}]]>
         /// </summary>
         public static Task<ResponseStreamHolder> CaptureDumpAsync(this ApiClient client, int pid, DumpType dumpType)
         {
@@ -229,7 +230,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.HttpApi
         }
 
         /// <summary>
-        /// Get /dump?pid={pid}&type={dumpType}
+        /// Get <![CDATA[/dump?pid={pid}&type={dumpType}]]>
         /// </summary>
         public static async Task<ResponseStreamHolder> CaptureDumpAsync(this ApiClient client, int pid, DumpType dumpType, TimeSpan timeout)
         {
@@ -238,7 +239,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.HttpApi
         }
 
         /// <summary>
-        /// Get /dump?uid={uid}&type={dumpType}
+        /// Get <![CDATA[/dump?uid={uid}&type={dumpType}]]>
         /// </summary>
         public static Task<ResponseStreamHolder> CaptureDumpAsync(this ApiClient client, Guid uid, DumpType dumpType)
         {
@@ -246,7 +247,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.HttpApi
         }
 
         /// <summary>
-        /// Get /dump?uid={uid}&type={dumpType}
+        /// Get <![CDATA[/dump?uid={uid}&type={dumpType}]]>
         /// </summary>
         public static async Task<ResponseStreamHolder> CaptureDumpAsync(this ApiClient client, Guid uid, DumpType dumpType, TimeSpan timeout)
         {
@@ -255,7 +256,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.HttpApi
         }
 
         /// <summary>
-        /// GET /logs?pid={pid}&level={logLevel}&durationSeconds={duration}
+        /// GET <![CDATA[/logs?pid={pid}&level={logLevel}&durationSeconds={duration}]]>
         /// </summary>
         public static Task<ResponseStreamHolder> CaptureLogsAsync(this ApiClient client, int pid, TimeSpan duration, LogLevel? logLevel, LogFormat logFormat)
         {
@@ -263,7 +264,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.HttpApi
         }
 
         /// <summary>
-        /// GET /logs?pid={pid}&level={logLevel}&durationSeconds={duration}
+        /// GET <![CDATA[/logs?pid={pid}&level={logLevel}&durationSeconds={duration}]]>
         /// </summary>
         public static async Task<ResponseStreamHolder> CaptureLogsAsync(this ApiClient client, int pid, TimeSpan duration, LogLevel? logLevel, TimeSpan timeout, LogFormat logFormat)
         {
@@ -272,7 +273,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.HttpApi
         }
 
         /// <summary>
-        /// POST /logs?pid={pid}&durationSeconds={duration}
+        /// POST <![CDATA[/logs?pid={pid}&durationSeconds={duration}]]>
         /// </summary>
         public static Task<ResponseStreamHolder> CaptureLogsAsync(this ApiClient client, int pid, TimeSpan duration, LogsConfiguration configuration, LogFormat logFormat)
         {
@@ -280,12 +281,29 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.HttpApi
         }
 
         /// <summary>
-        /// POST /logs/{pid}?durationSeconds={duration}
+        /// POST <![CDATA[/logs/{pid}?durationSeconds={duration}]]>
         /// </summary>
         public static async Task<ResponseStreamHolder> CaptureLogsAsync(this ApiClient client, int pid, TimeSpan duration, LogsConfiguration configuration, TimeSpan timeout, LogFormat logFormat)
         {
             using CancellationTokenSource timeoutSource = new(timeout);
             return await client.CaptureLogsAsync(pid, duration, configuration, logFormat, timeoutSource.Token);
+        }
+
+        /// <summary>
+        /// GET <![CDATA[/trace?pid={pid}&profile={profile}&durationSeconds={duration}]]>
+        /// </summary>
+        public static Task<ResponseStreamHolder> CaptureTraceAsync(this ApiClient client, int pid, TimeSpan duration, TraceProfile? profile)
+        {
+            return client.CaptureTraceAsync(pid, duration, profile, TestTimeouts.HttpApi);
+        }
+
+        /// <summary>
+        /// GET <![CDATA[/trace?pid={pid}&profile={profile}&durationSeconds={duration}]]>
+        /// </summary>
+        public static async Task<ResponseStreamHolder> CaptureTraceAsync(this ApiClient client, int pid, TimeSpan duration, TraceProfile? profile, TimeSpan timeout)
+        {
+            using CancellationTokenSource timeoutSource = new(timeout);
+            return await client.CaptureTraceAsync(pid, duration, profile, timeoutSource.Token);
         }
 
         /// <summary>
@@ -318,6 +336,57 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.HttpApi
         }
 
         /// <summary>
+        /// GET /exceptions
+        /// </summary>
+        public static Task<ResponseStreamHolder> CaptureExceptionsAsync(this ApiClient client, int processId, ExceptionFormat format)
+        {
+            return client.CaptureExceptionsAsync(processId, format, TestTimeouts.HttpApi);
+        }
+
+        /// <summary>
+        /// GET /exceptions
+        /// </summary>
+        public static async Task<ResponseStreamHolder> CaptureExceptionsAsync(this ApiClient client, int processId, ExceptionFormat format, TimeSpan timeout)
+        {
+            using CancellationTokenSource timeoutSource = new(timeout);
+            return await client.CaptureExceptionsAsync(processId, format, timeoutSource.Token).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// POST /exceptions
+        /// </summary>
+        public static Task<ResponseStreamHolder> CaptureExceptionsAsync(this ApiClient client, ExceptionsConfiguration configuration, int processId, ExceptionFormat format)
+        {
+            return client.CaptureExceptionsAsync(configuration, processId, format, TestTimeouts.HttpApi);
+        }
+
+        /// <summary>
+        /// POST /exceptions
+        /// </summary>
+        public static async Task<ResponseStreamHolder> CaptureExceptionsAsync(this ApiClient client, ExceptionsConfiguration configuration, int processId, ExceptionFormat format, TimeSpan timeout)
+        {
+            using CancellationTokenSource timeoutSource = new(timeout);
+            return await client.CaptureExceptionsAsync(configuration, processId, format, timeoutSource.Token).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// GET /stacks
+        /// </summary>
+        public static Task<ResponseStreamHolder> CaptureStacksAsync(this ApiClient client, int pid, WebApi.StackFormat format)
+        {
+            return client.CaptureStacksAsync(pid, format, TestTimeouts.HttpApi);
+        }
+
+        /// <summary>
+        /// GET /stacks
+        /// </summary>
+        public static async Task<ResponseStreamHolder> CaptureStacksAsync(this ApiClient client, int pid, WebApi.StackFormat format, TimeSpan timeout)
+        {
+            using CancellationTokenSource timeoutSource = new(timeout);
+            return await client.CaptureStacksAsync(pid, format, timeoutSource.Token).ConfigureAwait(false);
+        }
+
+        /// <summary>
         /// GET /info
         /// </summary>
         public static Task<DotnetMonitorInfo> GetInfoAsync(this ApiClient client)
@@ -334,10 +403,54 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.HttpApi
             return await client.GetInfoAsync(timeoutSource.Token).ConfigureAwait(false);
         }
 
-        public static async Task<OperationResponse> EgressTraceAsync(this ApiClient client, int processId, int durationSeconds, string egressProvider)
+        /// <summary>
+        /// Capable of getting every combination of process query: PID, UID, and/or Name
+        /// GET <![CDATA[/collectionrules?pid={pid}&uid={uid}&name={name}]]>
+        /// </summary>
+        public static Task<Dictionary<string, CollectionRuleDescription>> GetCollectionRulesDescriptionAsync(this ApiClient client, int? pid, Guid? uid, string name)
+        {
+            return client.GetCollectionRulesDescriptionAsync(pid, uid, name, TestTimeouts.HttpApi);
+        }
+
+        /// <summary>
+        /// Capable of getting every combination of process query: PID, UID, and/or Name
+        /// GET <![CDATA[/collectionrules?pid={pid}&uid={uid}&name={name}]]>
+        /// </summary>
+        public static async Task<Dictionary<string, CollectionRuleDescription>> GetCollectionRulesDescriptionAsync(this ApiClient client, int? pid, Guid? uid, string name, TimeSpan timeout)
+        {
+            using CancellationTokenSource timeoutSource = new(timeout);
+            return await client.GetCollectionRulesDescriptionAsync(pid, uid, name, timeoutSource.Token).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Capable of getting every combination of process query: PID, UID, and/or Name
+        /// GET <![CDATA[/collectionrules/{collectionrulename}?pid={pid}&uid={uid}&name={name}]]>
+        /// </summary>
+        public static Task<CollectionRuleDetailedDescription> GetCollectionRuleDetailedDescriptionAsync(this ApiClient client, string collectionRuleName, int? pid, Guid? uid, string name)
+        {
+            return client.GetCollectionRuleDetailedDescriptionAsync(collectionRuleName, pid, uid, name, TestTimeouts.HttpApi);
+        }
+
+        /// <summary>
+        /// Capable of getting every combination of process query: PID, UID, and/or Name
+        /// GET <![CDATA[/collectionrules/{collectionrulename}?pid={pid}&uid={uid}&name={name}]]>
+        /// </summary>
+        public static async Task<CollectionRuleDetailedDescription> GetCollectionRuleDetailedDescriptionAsync(this ApiClient client, string collectionRuleName, int? pid, Guid? uid, string name, TimeSpan timeout)
+        {
+            using CancellationTokenSource timeoutSource = new(timeout);
+            return await client.GetCollectionRuleDetailedDescriptionAsync(collectionRuleName, pid, uid, name, timeoutSource.Token).ConfigureAwait(false);
+        }
+
+        public static async Task<OperationResponse> EgressTraceAsync(this ApiClient client, int processId, int durationSeconds, string egressProvider, string tags = null)
         {
             using CancellationTokenSource timeoutSource = new(TestTimeouts.HttpApi);
-            return await client.EgressTraceAsync(processId, durationSeconds, egressProvider, timeoutSource.Token).ConfigureAwait(false);
+            return await client.EgressTraceAsync(processId, durationSeconds, egressProvider, tags, timeoutSource.Token).ConfigureAwait(false);
+        }
+
+        public static async Task<ResponseStreamHolder> HttpEgressTraceAsync(this ApiClient client, int processId, int durationSeconds)
+        {
+            using CancellationTokenSource timeoutSource = new(TestTimeouts.HttpApi);
+            return await client.HttpEgressTraceAsync(processId, durationSeconds, timeoutSource.Token).ConfigureAwait(false);
         }
 
         public static async Task<OperationStatusResponse> GetOperationStatus(this ApiClient client, Uri operation)
@@ -346,10 +459,21 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.HttpApi
             return await client.GetOperationStatus(operation, timeoutSource.Token).ConfigureAwait(false);
         }
 
-        public static async Task<List<OperationSummary>> GetOperations(this ApiClient client)
+        public static async Task<List<OperationSummary>> GetOperations(this ApiClient client, string tags = null)
         {
             using CancellationTokenSource timeoutSource = new(TestTimeouts.HttpApi);
-            return await client.GetOperations(timeoutSource.Token).ConfigureAwait(false);
+            return await client.GetOperations(tags, timeoutSource.Token).ConfigureAwait(false);
+        }
+
+        public static Task<HttpStatusCode> StopEgressOperation(this ApiClient client, Guid operationId)
+        {
+            return StopEgressOperation(client, new Uri(client.BaseAddress, FormattableString.Invariant($"operations/{operationId}")));
+        }
+
+        public static async Task<HttpStatusCode> StopEgressOperation(this ApiClient client, Uri operation)
+        {
+            using CancellationTokenSource timeoutSource = new(TestTimeouts.HttpApi);
+            return await client.StopEgressOperation(operation, timeoutSource.Token).ConfigureAwait(false);
         }
 
         public static async Task<HttpStatusCode> CancelEgressOperation(this ApiClient client, Uri operation)
@@ -373,10 +497,11 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.HttpApi
         {
             OperationStatusResponse operationResult = await apiClient.GetOperationStatus(operationUrl).ConfigureAwait(false);
             Assert.True(operationResult.StatusCode == HttpStatusCode.OK || operationResult.StatusCode == HttpStatusCode.Created);
-            Assert.True(operationResult.OperationStatus.Status == OperationState.Running || operationResult.OperationStatus.Status == OperationState.Succeeded);
 
             using CancellationTokenSource cancellationTokenSource = new(timeout);
-            while (operationResult.OperationStatus.Status == OperationState.Running)
+            while (operationResult.OperationStatus.Status == OperationState.Starting ||
+                operationResult.OperationStatus.Status == OperationState.Running ||
+                operationResult.OperationStatus.Status == OperationState.Stopping)
             {
                 cancellationTokenSource.Token.ThrowIfCancellationRequested();
                 await Task.Delay(TimeSpan.FromSeconds(1), cancellationTokenSource.Token).ConfigureAwait(false);
@@ -385,5 +510,60 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.HttpApi
 
             return operationResult;
         }
+
+        /// <summary>
+        /// POST /parameters
+        /// </summary>
+        public static Task<OperationResponse> CaptureParametersAsync(this ApiClient client, int pid, TimeSpan duration, CaptureParametersConfiguration config)
+        {
+            return client.CaptureParametersAsync(pid, duration, config, CapturedParameterFormat.JsonSequence, string.Empty, TestTimeouts.HttpApi);
+        }
+
+        /// <summary>
+        /// POST /parameters
+        /// </summary>
+        public static Task<OperationResponse> CaptureParametersAsync(this ApiClient client, int pid, TimeSpan duration, CaptureParametersConfiguration config, CapturedParameterFormat format)
+        {
+            return client.CaptureParametersAsync(pid, duration, config, format, string.Empty, TestTimeouts.HttpApi);
+        }
+
+        /// <summary>
+        /// POST /parameters
+        /// </summary>
+        public static Task<OperationResponse> CaptureParametersAsync(this ApiClient client, int pid, TimeSpan duration, CaptureParametersConfiguration config, CapturedParameterFormat format, string egressProvider)
+        {
+            return client.CaptureParametersAsync(pid, duration, config, format, egressProvider, TestTimeouts.HttpApi);
+        }
+
+        /// <summary>
+        /// POST /parameters
+        /// </summary>
+        public static async Task<OperationResponse> CaptureParametersAsync(this ApiClient client, int pid, TimeSpan duration, CaptureParametersConfiguration config, CapturedParameterFormat format, string egressProvider, TimeSpan timeout)
+        {
+            using CancellationTokenSource timeoutSource = new(timeout);
+            return await client.CaptureParametersAsync(pid, duration, egressProvider, config, format, timeoutSource.Token).ConfigureAwait(false);
+        }
+
+        public static Task<OperationStatusResponse> WaitForOperationToStart(this ApiClient apiClient, Uri operationUrl)
+        {
+            return apiClient.WaitForOperationToStart(operationUrl, TestTimeouts.OperationTimeout);
+        }
+
+        public static async Task<OperationStatusResponse> WaitForOperationToStart(this ApiClient apiClient, Uri operationUrl, TimeSpan timeout)
+        {
+            OperationStatusResponse operationResult = await apiClient.GetOperationStatus(operationUrl).ConfigureAwait(false);
+            Assert.True(operationResult.StatusCode == HttpStatusCode.OK || operationResult.StatusCode == HttpStatusCode.Created);
+
+            using CancellationTokenSource cancellationTokenSource = new(timeout);
+            while (operationResult.OperationStatus.Status == OperationState.Starting)
+            {
+                cancellationTokenSource.Token.ThrowIfCancellationRequested();
+                await Task.Delay(TimeSpan.FromSeconds(1), cancellationTokenSource.Token).ConfigureAwait(false);
+                operationResult = await apiClient.GetOperationStatus(operationUrl).ConfigureAwait(false);
+            }
+
+            return operationResult;
+        }
+
     }
 }

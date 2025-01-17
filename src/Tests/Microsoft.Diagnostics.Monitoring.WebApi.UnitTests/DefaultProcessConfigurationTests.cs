@@ -1,18 +1,9 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
-using Microsoft.Diagnostics.Monitoring.WebApi;
-using Microsoft.Diagnostics.Monitoring.TestCommon;
-using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Globalization;
 using System.Linq;
-using System.Net;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Security.Cryptography;
-using System.Threading.Tasks;
 using Xunit;
 
 namespace Microsoft.Diagnostics.Monitoring.WebApi.UnitTests
@@ -165,7 +156,7 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi.UnitTests
         private static DiagProcessFilter CreateOptions(params ProcessFilterDescriptor[] filters)
         {
             var filterOptions = new ProcessFilterOptions();
-            foreach(var processFilter in filters)
+            foreach (var processFilter in filters)
             {
                 filterOptions.Filters.Add(processFilter);
             }

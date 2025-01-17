@@ -1,6 +1,5 @@
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Monitoring.TestCommon;
 using Microsoft.Diagnostics.Monitoring.TestCommon.Runners;
@@ -16,6 +15,7 @@ using Xunit.Abstractions;
 
 namespace Microsoft.Diagnostics.Monitoring.ConfigurationSchema.UnitTests
 {
+    [TargetFrameworkMonikerTrait(TargetFrameworkMonikerExtensions.CurrentTargetFrameworkMoniker)]
     public class SchemaGenerationTests
     {
         private readonly ITestOutputHelper _outputHelper;
@@ -32,7 +32,10 @@ namespace Microsoft.Diagnostics.Monitoring.ConfigurationSchema.UnitTests
         private const string SchemaGeneratorName = "Microsoft.Diagnostics.Monitoring.ConfigurationSchema";
 
         private static readonly string SchemaGeneratorPath =
-            AssemblyHelper.GetAssemblyArtifactBinPath(Assembly.GetExecutingAssembly(), SchemaGeneratorName);
+            AssemblyHelper.GetAssemblyArtifactBinPath(
+                Assembly.GetExecutingAssembly(),
+                SchemaGeneratorName,
+                TargetFrameworkMoniker.Net80);
 
         public SchemaGenerationTests(ITestOutputHelper outputHelper)
         {
@@ -112,14 +115,14 @@ namespace Microsoft.Diagnostics.Monitoring.ConfigurationSchema.UnitTests
             int formatQty = (endLine + 1).ToString("D").Length; // Get the length of the biggest number (add 1 for the 1-based index)
             for (int i = startLine; i <= endLine; i++)
             {
-                outputHelper.WriteLine("{0}:{1}{2}", (i+1).ToString("D" + formatQty.ToString(CultureInfo.InvariantCulture)), (i == lineHighlighted) ? " >" : "  ", lines[i]);
+                outputHelper.WriteLine("{0}:{1}{2}", (i + 1).ToString("D" + formatQty.ToString(CultureInfo.InvariantCulture)), (i == lineHighlighted) ? " >" : "  ", lines[i]);
             }
         }
 
-        private async Task<IList<string>> ReadAllLines(TextReader reader)
+        private static async Task<IList<string>> ReadAllLines(TextReader reader)
         {
             var lines = new List<string>();
-            string line = null;
+            string line;
 
             while ((line = await reader.ReadLineAsync()) != null)
             {

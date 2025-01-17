@@ -1,24 +1,24 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Monitoring.WebApi;
 using Microsoft.Diagnostics.NETCore.Client;
 using System;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace Microsoft.Diagnostics.Tools.Monitor
 {
     [DebuggerDisplay("{DebuggerDisplay,nq}")]
-    internal class EndpointInfo : IEndpointInfo
+    internal sealed class EndpointInfo : EndpointInfoBase
     {
-        public static async Task<EndpointInfo> FromProcessIdAsync(int processId, CancellationToken token)
+        public static async Task<EndpointInfo> FromProcessIdAsync(int processId, IServiceProvider serviceProvider, CancellationToken token)
         {
             var client = new DiagnosticsClient(processId);
 
-            ProcessInfo processInfo = null;
+            ProcessInfo? processInfo = null;
             try
             {
                 // Primary motivation is to get the runtime instance cookie in order to
@@ -37,8 +37,12 @@ namespace Microsoft.Diagnostics.Tools.Monitor
                 // Runtime didn't respond within client timeout.
             }
 
+            _ = TryParseVersion(processInfo?.ClrProductVersionString, out Version? runtimeVersion);
+
             // CONSIDER: Generate a runtime instance identifier based on the pipe name
             // for .NET Core 3.1 e.g. pid + disambiguator in GUID form.
+            // Note that currently we use RuntimeInstanceId == Guid.Empty as a means of determining
+            // if an app is running as 3.1
             return new EndpointInfo()
             {
                 Endpoint = new PidIpcEndpoint(processId),
@@ -46,15 +50,17 @@ namespace Microsoft.Diagnostics.Tools.Monitor
                 RuntimeInstanceCookie = processInfo?.RuntimeInstanceCookie ?? Guid.Empty,
                 CommandLine = processInfo?.CommandLine,
                 OperatingSystem = processInfo?.OperatingSystem,
-                ProcessArchitecture = processInfo?.ProcessArchitecture
+                ProcessArchitecture = processInfo?.ProcessArchitecture,
+                RuntimeVersion = runtimeVersion,
+                ServiceProvider = serviceProvider
             };
         }
 
-        public static async Task<EndpointInfo> FromIpcEndpointInfoAsync(IpcEndpointInfo info, CancellationToken token)
+        public static async Task<EndpointInfo> FromIpcEndpointInfoAsync(IpcEndpointInfo info, IServiceProvider serviceProvider, CancellationToken token)
         {
             var client = new DiagnosticsClient(info.Endpoint);
 
-            ProcessInfo processInfo = null;
+            ProcessInfo? processInfo = null;
             try
             {
                 // Primary motivation is to keep parity with the FromProcessId implementation,
@@ -74,6 +80,8 @@ namespace Microsoft.Diagnostics.Tools.Monitor
                 // Runtime didn't respond within client timeout.
             }
 
+            _ = TryParseVersion(processInfo?.ClrProductVersionString, out Version? runtimeVersion);
+
             return new EndpointInfo()
             {
                 Endpoint = info.Endpoint,
@@ -81,21 +89,59 @@ namespace Microsoft.Diagnostics.Tools.Monitor
                 RuntimeInstanceCookie = info.RuntimeInstanceCookie,
                 CommandLine = processInfo?.CommandLine,
                 OperatingSystem = processInfo?.OperatingSystem,
-                ProcessArchitecture = processInfo?.ProcessArchitecture
+                ProcessArchitecture = processInfo?.ProcessArchitecture,
+                RuntimeVersion = runtimeVersion,
+                ServiceProvider = serviceProvider
             };
         }
 
-        public IpcEndpoint Endpoint { get; private set; }
+        private static bool TryParseVersion(string? versionString, [NotNullWhen(true)] out Version? version)
+        {
+            version = null;
+            if (string.IsNullOrEmpty(versionString))
+            {
+                return false;
+            }
 
-        public int ProcessId { get; private set; }
+            // The version is of the SemVer2 form: <major>.<minor>.<patch>[-<prerelease>][+<metadata>]
+            // Remove the prerelease and metadata version information before parsing.
 
-        public Guid RuntimeInstanceCookie { get; private set; }
+            ReadOnlySpan<char> versionSpan = versionString;
+            int metadataIndex = versionSpan.IndexOf('+');
+            if (-1 == metadataIndex)
+            {
+                metadataIndex = versionSpan.Length;
+            }
 
-        public string CommandLine { get; private set; }
+            ReadOnlySpan<char> noMetadataVersion = versionSpan[..metadataIndex];
+            int prereleaseIndex = noMetadataVersion.IndexOf('-');
+            if (-1 == prereleaseIndex)
+            {
+                prereleaseIndex = metadataIndex;
+            }
 
-        public string OperatingSystem { get; private set; }
+            return Version.TryParse(noMetadataVersion[..prereleaseIndex], out version);
+        }
 
-        public string ProcessArchitecture { get; private set; }
+#nullable disable
+        public override IpcEndpoint Endpoint { get; protected set; }
+#nullable restore
+
+        public override int ProcessId { get; protected set; }
+
+        public override Guid RuntimeInstanceCookie { get; protected set; }
+
+        public override string? CommandLine { get; protected set; }
+
+        public override string? OperatingSystem { get; protected set; }
+
+        public override string? ProcessArchitecture { get; protected set; }
+
+        public override Version? RuntimeVersion { get; protected set; }
+
+#nullable disable
+        public override IServiceProvider ServiceProvider { get; protected set; }
+#nullable restore
 
         internal string DebuggerDisplay => FormattableString.Invariant($"PID={ProcessId}, Cookie={RuntimeInstanceCookie}");
     }

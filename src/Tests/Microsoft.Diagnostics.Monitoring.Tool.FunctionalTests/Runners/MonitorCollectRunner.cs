@@ -1,6 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Monitoring.TestCommon;
 using Microsoft.Diagnostics.Monitoring.TestCommon.Runners;
@@ -37,7 +36,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.Runners
         private readonly TaskCompletionSource<string> _readySource =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        private bool _isDiposed;
+        private long _disposedState;
 
         /// <summary>
         /// Event callback for when a Private Key warning message is seen.
@@ -45,16 +44,16 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.Runners
         public event Action<string> WarnPrivateKey;
 
         /// <summary>
-        /// The mode of the diagnostic port connection. Default is <see cref="DiagnosticPortConnectionMode.Connect"/>
-        /// (the tool is searching for apps that are in listen mode).
+        /// The mode of the diagnostic port connection.
         /// </summary>
         /// <remarks>
+        /// Set to <see cref="DiagnosticPortConnectionMode.Connect"/> if tool needs to discover the diagnostic port for each target process.
         /// Set to <see cref="DiagnosticPortConnectionMode.Listen"/> if tool needs to establish the diagnostic port listener.
         /// </remarks>
-        public DiagnosticPortConnectionMode ConnectionMode { get; set; } = DiagnosticPortConnectionMode.Connect;
+        public DiagnosticPortConnectionMode? ConnectionModeViaCommandLine { get; set; }
 
         /// <summary>
-        /// Path of the diagnostic port to establish when <see cref="ConnectionMode"/> is <see cref="DiagnosticPortConnectionMode.Listen"/>.
+        /// Path of the diagnostic port to establish when <see cref="ConnectionModeViaCommandLine"/> is <see cref="DiagnosticPortConnectionMode.Listen"/>.
         /// </summary>
         public string DiagnosticPortPath { get; set; }
 
@@ -78,6 +77,30 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.Runners
         /// </summary>
         public bool DisableMetricsViaCommandLine { get; set; }
 
+        /// <summary>
+        /// Reports whether the server URLs were overridden by UseKestrel/ConfigureKestrel code.
+        /// </summary>
+        public bool OverrodeServerUrls { get; private set; }
+
+        /// <summary>
+        /// Urls used for the DOTNET_Urls environment variable.
+        /// </summary>
+        public string DotNetUrls { get; set; }
+
+        /// <summary>
+        /// Urls used for the ASPNETCORE_Urls environment variable.
+        /// </summary>
+        public string AspNetCoreUrls { get; set; }
+
+        /// <summary>
+        /// Urls used for the DOTNETMONITOR_Urls environment variable.
+        /// </summary>
+        public string DotNetMonitorUrls { get; set; }
+
+        /// <summary>
+        /// Determines whether the dotnet-monitor process should exit when stdin is disconnected.
+        /// </summary>
+        public bool ExitOnStdinDisconnect { get; set; }
 
         public MonitorCollectRunner(ITestOutputHelper outputHelper)
             : base(outputHelper)
@@ -86,13 +109,9 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.Runners
 
         public override async ValueTask DisposeAsync()
         {
-            lock (_lock)
+            if (!TestCommon.DisposableHelper.CanDispose(ref _disposedState))
             {
-                if (_isDiposed)
-                {
-                    return;
-                }
-                _isDiposed = true;
+                return;
             }
 
             CancelCompletionSources(CancellationToken.None);
@@ -109,6 +128,19 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.Runners
             argsList.Add("--urls");
             argsList.Add("http://127.0.0.1:0");
 
+            if (!string.IsNullOrEmpty(DotNetUrls))
+            {
+                SetEnvironmentVariable("DOTNET_Urls", DotNetUrls);
+            }
+            if (!string.IsNullOrEmpty(AspNetCoreUrls))
+            {
+                SetEnvironmentVariable("ASPNETCORE_Urls", AspNetCoreUrls);
+            }
+            if (!string.IsNullOrEmpty(DotNetMonitorUrls))
+            {
+                SetEnvironmentVariable("DOTNETMONITOR_Urls", DotNetMonitorUrls);
+            }
+
             if (DisableMetricsViaCommandLine)
             {
                 argsList.Add("--metrics:false");
@@ -119,7 +151,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.Runners
                 argsList.Add("http://127.0.0.1:0");
             }
 
-            if (ConnectionMode == DiagnosticPortConnectionMode.Listen)
+            if (ConnectionModeViaCommandLine == DiagnosticPortConnectionMode.Listen)
             {
                 argsList.Add("--diagnostic-port");
                 if (string.IsNullOrEmpty(DiagnosticPortPath))
@@ -133,7 +165,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.Runners
             {
                 argsList.Add("--no-auth");
             }
-            
+
             if (DisableHttpEgress)
             {
                 argsList.Add("--no-http-egress");
@@ -142,6 +174,11 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.Runners
             if (UseTempApiKey)
             {
                 argsList.Add("--temp-apikey");
+            }
+
+            if (ExitOnStdinDisconnect)
+            {
+                argsList.Add("--exit-on-stdin-disconnect");
             }
 
             using IDisposable _ = token.Register(() => CancelCompletionSources(token));
@@ -161,22 +198,36 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.Runners
 
         protected override void StandardOutputCallback(string line)
         {
-            ConsoleLogEvent logEvent = JsonSerializer.Deserialize<ConsoleLogEvent>(line);
-
-            switch (logEvent.Category)
+            try
             {
-                case "Microsoft.Hosting.Lifetime":
-                    HandleLifetimeEvent(logEvent);
-                    break;
-                case "Microsoft.Diagnostics.Tools.Monitor.Startup":
-                    HandleStartupEvent(logEvent);
-                    break;
-                case "Microsoft.Diagnostics.Tools.Monitor.CollectionRules.CollectionRuleService":
-                    HandleCollectionRuleEvent(logEvent);
-                    break;
-                default:
-                    HandleGenericLogEvent(logEvent);
-                    break;
+                ConsoleLogEvent logEvent = JsonSerializer.Deserialize<ConsoleLogEvent>(line);
+
+                switch (logEvent.Category)
+                {
+                    case "Microsoft.AspNetCore.Server.Kestrel":
+                        HandleKestrelEvent(logEvent);
+                        break;
+                    case "Microsoft.Hosting.Lifetime":
+                        HandleLifetimeEvent(logEvent);
+                        break;
+                    case "Microsoft.Diagnostics.Tools.Monitor.Startup":
+                        HandleStartupEvent(logEvent);
+                        break;
+                    case "Microsoft.Diagnostics.Tools.Monitor.CollectionRules.CollectionRuleService":
+                        HandleCollectionRuleEvent(logEvent);
+                        break;
+                    case "Microsoft.Diagnostics.Tools.Monitor.LogsOperation":
+                        HandleArtifactEvent(logEvent);
+                        break;
+                    default:
+                        HandleGenericLogEvent(logEvent);
+                        break;
+                }
+            }
+            catch (JsonException)
+            {
+                // Unable to parse the output. These could be lines written to stdout that are not JSON formatted.
+                _outputHelper.WriteLine("Unable to JSON parse stdout line: {0}", line);
             }
         }
 
@@ -243,6 +294,14 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.Runners
                         Assert.True(_monitorApiKeySource.TrySetResult(monitorApiKey));
                     }
                     break;
+            }
+        }
+
+        private void HandleKestrelEvent(ConsoleLogEvent logEvent)
+        {
+            if (logEvent.Message.StartsWith("Overriding address(es)"))
+            {
+                OverrodeServerUrls = true;
             }
         }
 

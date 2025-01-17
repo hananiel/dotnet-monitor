@@ -1,0 +1,26 @@
+name: 'Check markdown links'
+on:
+  pull_request:
+    paths: ['**.md']
+    branches: ['main']
+
+permissions:
+  pull-requests: read
+
+jobs:
+  check-markdown-links:
+    name: 'Check markdown links'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+        with:
+          persist-credentials: false
+
+      - name: Check markdown links
+        uses: gaurav-nelson/github-action-markdown-link-check@7d83e59a57f3c201c76eed3d33dff64ec4452d27
+        with:
+          config-file: .github/linters/check-markdown-links-config.json
+          use-quiet-mode: 'yes'
+          use-verbose-mode: 'no'

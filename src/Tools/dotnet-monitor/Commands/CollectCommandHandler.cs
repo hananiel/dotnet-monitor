@@ -1,17 +1,19 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Diagnostics.Monitoring;
 using Microsoft.Diagnostics.Monitoring.WebApi;
+using Microsoft.Diagnostics.Tools.Monitor.Auth;
+using Microsoft.Diagnostics.Tools.Monitor.Stacks;
+using Microsoft.Diagnostics.Tools.Monitor.Swagger;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System;
-using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -19,18 +21,24 @@ namespace Microsoft.Diagnostics.Tools.Monitor.Commands
 {
     internal static class CollectCommandHandler
     {
-        public static async Task<int> Invoke(CancellationToken token, string[] urls, string[] metricUrls, bool metrics, string diagnosticPort, bool noAuth, bool tempApiKey, bool noHttpEgress)
+        public static async Task<int> Invoke(CancellationToken token, string[]? urls, string[]? metricUrls, bool metrics, string? diagnosticPort, bool noAuth, bool tempApiKey, bool noHttpEgress, FileInfo? configurationFilePath, bool exitOnStdinDisconnect)
         {
             try
             {
-                AuthConfiguration authenticationOptions = HostBuilderHelper.CreateAuthConfiguration(noAuth, tempApiKey);
+                StartupAuthenticationMode authMode = HostBuilderHelper.GetStartupAuthenticationMode(noAuth, tempApiKey);
+                HostBuilderSettings settings = HostBuilderSettings.CreateMonitor(urls, metricUrls, metrics, diagnosticPort, authMode, configurationFilePath);
 
-                IHost host = HostBuilderHelper.CreateHostBuilder(urls, metricUrls, metrics, diagnosticPort, authenticationOptions)
-                    .ConfigureServices(authenticationOptions, noHttpEgress)
+                IHost host = HostBuilderHelper.CreateHostBuilder(settings)
+                    .Configure(authMode, noHttpEgress, settings)
                     .Build();
 
                 try
                 {
+                    if (exitOnStdinDisconnect)
+                    {
+                        WatchStdinForDisconnect(host.Services, token);
+                    }
+
                     await host.StartAsync(token);
 
                     await host.WaitForShutdownAsync(token);
@@ -56,17 +64,10 @@ namespace Microsoft.Diagnostics.Tools.Monitor.Commands
                 }
                 finally
                 {
-                    if (host is IAsyncDisposable asyncDisposable)
-                    {
-                        await asyncDisposable.DisposeAsync();
-                    }
-                    else
-                    {
-                        host.Dispose();
-                    }
+                    await DisposableHelper.DisposeAsync(host);
                 }
             }
-            catch (FormatException ex)
+            catch (Exception ex) when (ex is FormatException || ex is DeferredAuthenticationValidationException)
             {
                 Console.Error.WriteLine(ex.Message);
                 if (ex.InnerException != null)
@@ -80,87 +81,151 @@ namespace Microsoft.Diagnostics.Tools.Monitor.Commands
             return 0;
         }
 
-        private static IHostBuilder ConfigureServices(this IHostBuilder builder, AuthConfiguration authenticationOptions, bool noHttpEgress)
+        private static IHostBuilder Configure(this IHostBuilder builder, StartupAuthenticationMode startupAuthMode, bool noHttpEgress, HostBuilderSettings settings)
         {
             return builder.ConfigureServices((HostBuilderContext context, IServiceCollection services) =>
             {
-                //TODO Many of these service additions should be done through extension methods
-                services.AddSingleton(RealSystemClock.Instance);
+                IAuthenticationConfigurator authConfigurator = AuthConfiguratorFactory.Create(startupAuthMode, context);
+                services.AddSingleton<IAuthenticationConfigurator>(authConfigurator);
 
-                services.AddSingleton<IAuthConfiguration>(authenticationOptions);
+                //TODO Many of these service additions should be done through extension methods
+                services.AddSingleton(TimeProvider.System);
 
                 services.AddSingleton<IEgressOutputConfiguration>(new EgressOutputConfiguration(httpEgressEnabled: !noHttpEgress));
 
-                // Although this is only observing API key authentication changes, it does handle
-                // the case when API key authentication is not enabled. This class could evolve
-                // to observe other options in the future, at which point it might be good to
-                // refactor the options observers for each into separate implementations and are
-                // orchestrated by this single service.
-                services.AddSingleton<MonitorApiKeyConfigurationObserver>();
+                authConfigurator.ConfigureApiAuth(services, context);
 
-                List<string> authSchemas = null;
-                if (authenticationOptions.EnableKeyAuth)
+                services.AddSwaggerGen(options =>
                 {
-                    AuthenticationBuilder authBuilder = services.ConfigureMonitorApiKeyAuthentication(context.Configuration);
-
-                    authSchemas = new List<string> { AuthConstants.ApiKeySchema };
-
-                    if (authenticationOptions.EnableNegotiate)
-                    {
-                        //On Windows add Negotiate package. This will use NTLM to perform Windows Authentication.
-                        authBuilder.AddNegotiate();
-                        authSchemas.Add(AuthConstants.NegotiateSchema);
-                    }
-                }
-
-                //Apply Authorization Policy for NTLM. Without Authorization, any user with a valid login/password will be authorized. We only
-                //want to authorize the same user that is running dotnet-monitor, at least for now.
-                //Note this policy applies to both Authorization schemas.
-                services.AddAuthorization(authOptions =>
-                {
-                    if (authenticationOptions.EnableKeyAuth)
-                    {
-                        authOptions.AddPolicy(AuthConstants.PolicyName, (builder) =>
-                        {
-                            builder.AddRequirements(new AuthorizedUserRequirement());
-                            builder.RequireAuthenticatedUser();
-                            builder.AddAuthenticationSchemes(authSchemas.ToArray());
-                        });
-                    }
-                    else
-                    {
-                        authOptions.AddPolicy(AuthConstants.PolicyName, (builder) =>
-                        {
-                            builder.RequireAssertion((_) => true);
-                        });
-                    }
+                    options.ConfigureMonitorSwaggerGen();
+                    authConfigurator.ConfigureSwaggerGenAuth(options);
                 });
 
-                if (authenticationOptions.EnableKeyAuth)
-                {
-                    services.AddSingleton<IAuthorizationHandler, UserAuthorizationHandler>();
-                }
+                services.ConfigureDiagnosticPort(context.Configuration);
 
-                services.Configure<DiagnosticPortOptions>(context.Configuration.GetSection(ConfigurationKeys.DiagnosticPort));
-                services.AddSingleton<IValidateOptions<DiagnosticPortOptions>, DiagnosticPortValidateOptions>();
                 services.AddSingleton<OperationTrackerService>();
 
                 services.ConfigureGlobalCounter(context.Configuration);
 
-                services.AddSingleton<IEndpointInfoSource, FilteredEndpointInfoSource>();
-                services.AddSingleton<ServerEndpointInfoSource>();
-                services.AddHostedServiceForwarder<ServerEndpointInfoSource>();
+                services.ConfigureCollectionRuleDefaults(context.Configuration);
+
+                services.ConfigureTemplates(context.Configuration);
+
+                services.ConfigureDotnetMonitorDebug(context.Configuration);
+
+                services.ConfigureEndpointInfoSource();
+
                 services.AddSingleton<IDiagnosticServices, DiagnosticServices>();
                 services.AddSingleton<IDumpService, DumpService>();
                 services.AddSingleton<IEndpointInfoSourceCallbacks, OperationTrackerServiceEndpointInfoSourceCallback>();
-                services.AddSingleton<RequestLimitTracker>();
+                services.ConfigureRequestLimits();
                 services.ConfigureOperationStore();
+                services.ConfigureExtensions();
+                services.ConfigureExtensionLocations(settings);
                 services.ConfigureEgress();
                 services.ConfigureMetrics(context.Configuration);
+                services.ConfigureParameterCapturing();
                 services.ConfigureStorage(context.Configuration);
                 services.ConfigureDefaultProcess(context.Configuration);
+                services.AddSingleton<ProfilerChannel>();
                 services.ConfigureCollectionRules();
+                services.ConfigureLibrarySharing();
+
+                // 
+                // The order of the below calls is **important**.
+                // - ConfigureInProcessFeatures needs to be called before ConfigureProfiler and ConfigureStartupHook
+                //   because these features will configure themselves depending on environment variables set by InProcessFeaturesEndpointInfoSourceCallbacks.
+                // - ConfigureProfiler needs to be called before ConfigureStartupHook
+                //   because the startup hook may call into the profiler on load.
+                // - ConfigureExceptions needs to be called before ConfigureStartupHook
+                //   because we want to avoid missing exception data events and potentially having an out-of-sync name cache.
+                //
+                services.ConfigureInProcessFeatures(context.Configuration);
+                services.ConfigureProfiler();
+                services.ConfigureExceptions();
+                services.ConfigureStartupHook();
+
+                services.ConfigureStartupLoggers(authConfigurator);
+                services.AddSingleton<IInProcessFeatures, InProcessFeatures>();
+                services.AddSingleton<IDumpOperationFactory, DumpOperationFactory>();
+                services.AddSingleton<ILogsOperationFactory, LogsOperationFactory>();
+                services.AddSingleton<IMetricsOperationFactory, MetricsOperationFactory>();
+                services.AddSingleton<ITraceOperationFactory, TraceOperationFactory>();
+                services.AddSingleton<IGCDumpOperationFactory, GCDumpOperationFactory>();
+                services.AddSingleton<IStacksOperationFactory, StacksOperationFactory>();
+
+                // Per-process services must be scoped
+                services.AddScoped<ScopedEndpointInfo>();
+                services.AddScopedForwarder<IEndpointInfo, ScopedEndpointInfo>();
+            })
+            .ConfigureContainer((HostBuilderContext context, IServiceCollection services) =>
+            {
+                ServerUrlsBlockingConfigurationManager? manager =
+                    context.Properties[typeof(ServerUrlsBlockingConfigurationManager)] as ServerUrlsBlockingConfigurationManager;
+                Debug.Assert(null != manager, $"Expected {typeof(ServerUrlsBlockingConfigurationManager).FullName} to be a {typeof(HostBuilderContext).FullName} property.");
+                if (null != manager)
+                {
+                    // Block reading of the Urls option so that Kestrel is unable to read it from the composed configuration.
+                    manager.IsBlocking = true;
+                }
             });
+        }
+
+        private static void WatchStdinForDisconnect(IServiceProvider serviceProvider, CancellationToken cancellationToken)
+        {
+            IHostApplicationLifetime lifetime;
+            Stream inputStream;
+            try
+            {
+                lifetime = serviceProvider.GetRequiredService<IHostApplicationLifetime>();
+                inputStream = Console.OpenStandardInput();
+            }
+            catch (Exception e)
+            {
+                serviceProvider.GetRequiredService<ILoggerFactory>()
+                    .CreateLogger(typeof(CollectCommandHandler))
+                    .UnableToWatchForDisconnect(e);
+
+                throw new MonitoringException(Strings.LogFormatString_UnableToWatchForDisconnect);
+            }
+
+            async Task WatchAsync()
+            {
+                byte[] buffer = new byte[100];
+                try
+                {
+                    while (true)
+                    {
+                        if (await inputStream.ReadAsync(buffer.AsMemory(), cancellationToken) == 0)
+                        {
+                            // input stream closed
+                            break;
+                        }
+                    }
+                }
+                catch (IOException)
+                {
+                    // In case the input stream returns a OS error, we will just exit.
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    // In case the input stream returns ERROR_ACCESS_DENIED, we will just exit.
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                lifetime.StopApplication();
+            }
+
+            // Kick off asynchronously reading from stdin
+            _ = WatchAsync();
         }
     }
 }

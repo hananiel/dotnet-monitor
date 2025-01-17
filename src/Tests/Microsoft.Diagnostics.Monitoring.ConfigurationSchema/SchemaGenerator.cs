@@ -1,19 +1,23 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
+using Microsoft.Diagnostics.Monitoring.AzureBlobStorage;
+using Microsoft.Diagnostics.Monitoring.Extension.S3Storage;
 using Microsoft.Diagnostics.Monitoring.Options;
 using Microsoft.Diagnostics.Tools.Monitor;
 using Microsoft.Diagnostics.Tools.Monitor.CollectionRules;
 using Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Options;
 using Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Options.Actions;
 using Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Options.Triggers;
+using Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Options.Triggers.EventCounterShortcuts;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using NJsonSchema;
 using NJsonSchema.Generation;
+using NJsonSchema.NewtonsoftJson.Generation;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Microsoft.Diagnostics.Monitoring.ConfigurationSchema
 {
@@ -33,9 +37,10 @@ namespace Microsoft.Diagnostics.Monitoring.ConfigurationSchema
 
             AddCollectionRuleSchemas(context);
             AddConsoleLoggerFormatterSubSchemas(context);
+            AddDiagnosticPortSchema(context, schema);
+            AddEgressExtensionSchemas(context);
 
             //TODO Figure out a better way to add object defaults
-            schema.Definitions[nameof(EgressOptions)].Properties[nameof(EgressOptions.AzureBlobStorage)].Default = JsonSchema.CreateAnySchema();
             schema.Definitions[nameof(EgressOptions)].Properties[nameof(EgressOptions.FileSystem)].Default = JsonSchema.CreateAnySchema();
             schema.Definitions[nameof(EgressOptions)].Properties[nameof(EgressOptions.Properties)].Default = JsonSchema.CreateAnySchema();
             schema.Definitions[nameof(LoggingOptions)].Properties[nameof(LoggingOptions.LogLevel)].Default = JsonSchema.CreateAnySchema();
@@ -59,6 +64,12 @@ namespace Microsoft.Diagnostics.Monitoring.ConfigurationSchema
             //Normalize newlines embedded into json
             schemaPayload = schemaPayload.Replace(@"\r\n", @"\n", StringComparison.Ordinal);
             return schemaPayload;
+        }
+
+        private static void AddDiagnosticPortSchema(GenerationContext context, JsonSchema schema)
+        {
+            JsonSchema stringSchema = new JsonSchema() { Type = JsonObjectType.String };
+            schema.Properties[nameof(RootOptions.DiagnosticPort)].OneOf.Add(stringSchema);
         }
 
         private static void AddConsoleLoggerFormatterSubSchemas(GenerationContext context)
@@ -115,8 +126,11 @@ namespace Microsoft.Diagnostics.Monitoring.ConfigurationSchema
             collectionRuleActionOptionsSchema.Properties[nameof(CollectionRuleActionOptions.Type)].OneOf.Add(collectionRuleActionOptionsTypeSubSchema);
 
             AddCollectionRuleActionSchema<CollectDumpOptions>(context, actionTypeSchema, KnownCollectionRuleActions.CollectDump);
+            AddCollectionRuleActionSchema<CollectExceptionsOptions>(context, actionTypeSchema, KnownCollectionRuleActions.CollectExceptions);
             AddCollectionRuleActionSchema<CollectGCDumpOptions>(context, actionTypeSchema, KnownCollectionRuleActions.CollectGCDump);
+            AddCollectionRuleActionSchema<CollectLiveMetricsOptions>(context, actionTypeSchema, KnownCollectionRuleActions.CollectLiveMetrics);
             AddCollectionRuleActionSchema<CollectLogsOptions>(context, actionTypeSchema, KnownCollectionRuleActions.CollectLogs);
+            AddCollectionRuleActionSchema<CollectStacksOptions>(context, actionTypeSchema, KnownCollectionRuleActions.CollectStacks);
             AddCollectionRuleActionSchema<CollectTraceOptions>(context, actionTypeSchema, KnownCollectionRuleActions.CollectTrace);
             AddCollectionRuleActionSchema<ExecuteOptions>(context, actionTypeSchema, KnownCollectionRuleActions.Execute);
             AddCollectionRuleActionSchema<LoadProfilerOptions>(context, actionTypeSchema, KnownCollectionRuleActions.LoadProfiler);
@@ -137,13 +151,16 @@ namespace Microsoft.Diagnostics.Monitoring.ConfigurationSchema
             AddCollectionRuleTriggerSchema<AspNetRequestDurationOptions>(context, triggerTypeSchema, KnownCollectionRuleTriggers.AspNetRequestDuration);
             AddCollectionRuleTriggerSchema<AspNetResponseStatusOptions>(context, triggerTypeSchema, KnownCollectionRuleTriggers.AspNetResponseStatus);
             AddCollectionRuleTriggerSchema<EventCounterOptions>(context, triggerTypeSchema, KnownCollectionRuleTriggers.EventCounter);
+            AddCollectionRuleTriggerSchema<CPUUsageOptions>(context, triggerTypeSchema, KnownCollectionRuleTriggers.CPUUsage);
+            AddCollectionRuleTriggerSchema<GCHeapSizeOptions>(context, triggerTypeSchema, KnownCollectionRuleTriggers.GCHeapSize);
+            AddCollectionRuleTriggerSchema<ThreadpoolQueueLengthOptions>(context, triggerTypeSchema, KnownCollectionRuleTriggers.ThreadpoolQueueLength);
+            AddCollectionRuleTriggerSchema<EventMeterOptions>(context, triggerTypeSchema, KnownCollectionRuleTriggers.EventMeter);
             AddCollectionRuleTriggerSchema(context, triggerTypeSchema, KnownCollectionRuleTriggers.Startup);
         }
 
         private static void AddCollectionRuleActionSchema<TOptions>(GenerationContext context, JsonSchema actionTypeSchema, string actionType)
         {
             JsonSchema subSchema = new JsonSchema();
-            subSchema.RequiredProperties.Add(nameof(CollectionRuleActionOptions.Settings));
 
             JsonSchemaProperty settingsProperty = AddDiscriminatedSubSchema(
                 context.Schema.Definitions[nameof(CollectionRuleActionOptions)],
@@ -153,6 +170,19 @@ namespace Microsoft.Diagnostics.Monitoring.ConfigurationSchema
                 subSchema);
 
             settingsProperty.Reference = context.AddTypeIfNotExist<TOptions>();
+
+            var propertyNames = GetCollectionRuleDefaultsPropertyNames();
+
+            // Don't require properties that have a corresponding collection rule default
+            foreach (var propName in propertyNames)
+            {
+                settingsProperty.Reference.RequiredProperties.Remove(propName);
+            }
+
+            if (settingsProperty.Reference.RequiredProperties.Count > 0)
+            {
+                subSchema.RequiredProperties.Add(nameof(CollectionRuleActionOptions.Settings));
+            }
 
             actionTypeSchema.Enumeration.Add(actionType);
         }
@@ -173,7 +203,6 @@ namespace Microsoft.Diagnostics.Monitoring.ConfigurationSchema
         private static void AddCollectionRuleTriggerSchema<TOptions>(GenerationContext context, JsonSchema triggerTypeSchema, string triggerType)
         {
             JsonSchema subSchema = new JsonSchema();
-            subSchema.RequiredProperties.Add(nameof(CollectionRuleTriggerOptions.Settings));
 
             JsonSchemaProperty settingsProperty = AddDiscriminatedSubSchema(
                 context.Schema.Definitions[nameof(CollectionRuleTriggerOptions)],
@@ -184,7 +213,61 @@ namespace Microsoft.Diagnostics.Monitoring.ConfigurationSchema
 
             settingsProperty.Reference = context.AddTypeIfNotExist<TOptions>();
 
+            IEnumerable<string> propertyNames = GetCollectionRuleDefaultsPropertyNames();
+
+            // Don't require properties that have a corresponding collection rule default
+            foreach (var propName in propertyNames)
+            {
+                settingsProperty.Reference.RequiredProperties.Remove(propName);
+            }
+
+            if (settingsProperty.Reference.RequiredProperties.Count > 0)
+            {
+                subSchema.RequiredProperties.Add(nameof(CollectionRuleTriggerOptions.Settings));
+            }
+
             triggerTypeSchema.Enumeration.Add(triggerType);
+        }
+
+        private static IEnumerable<string> GetCollectionRuleDefaultsPropertyNames()
+        {
+            List<string> propertyNames = new();
+
+            foreach (var defaultsType in typeof(CollectionRuleDefaultsOptions).GetProperties())
+            {
+                propertyNames.AddRange(defaultsType.PropertyType.GetProperties().Select(x => x.Name));
+            }
+
+            return propertyNames;
+        }
+
+        private static void AddEgressExtensionSchemas(GenerationContext context)
+        {
+            AddEgressExtensionSchema<AzureBlobEgressProviderOptions>(
+                context,
+                AzureBlobStorage.Constants.AzureBlobStorageProviderName,
+                "Mapping of Azure blob storage egress provider names to their options.");
+            AddEgressExtensionSchema<S3StorageEgressProviderOptions>(
+                context,
+                Extension.S3Storage.Constants.S3StorageProviderName,
+                "Mapping of S3 storage egress provider names to their options.");
+        }
+
+        private static void AddEgressExtensionSchema<TOptions>(GenerationContext context, string name, string description)
+        {
+            JsonSchema egressProviderOptionsSchema = context.AddTypeIfNotExist<TOptions>();
+
+            JsonSchemaProperty egressProviderProperty = new JsonSchemaProperty();
+            egressProviderProperty.Type = JsonObjectType.Null | JsonObjectType.Object;
+            egressProviderProperty.Description = description;
+            egressProviderProperty.AdditionalPropertiesSchema = new JsonSchema()
+            {
+                Reference = egressProviderOptionsSchema
+            };
+            egressProviderProperty.Default = JsonSchema.CreateAnySchema();
+
+            JsonSchemaProperty egressProperty = context.Schema.Properties[nameof(RootOptions.Egress)];
+            egressProperty.ActualTypeSchema.Properties.Add(name, egressProviderProperty);
         }
 
         private static JsonSchemaProperty AddDiscriminatedSubSchema(
@@ -192,7 +275,7 @@ namespace Microsoft.Diagnostics.Monitoring.ConfigurationSchema
             string discriminatingPropertyName,
             string discriminatingPropertyValue,
             string discriminatedPropertyName,
-            JsonSchema subSchema = null)
+            JsonSchema? subSchema = null)
         {
             if (null == subSchema)
             {
@@ -200,7 +283,7 @@ namespace Microsoft.Diagnostics.Monitoring.ConfigurationSchema
             }
 
             JsonSchemaProperty discriminatingProperty = new JsonSchemaProperty();
-            discriminatingProperty.ExtensionData = new Dictionary<string, object>();
+            discriminatingProperty.ExtensionData = new Dictionary<string, object?>();
             discriminatingProperty.ExtensionData.Add("const", discriminatingPropertyValue);
 
             subSchema.Properties.Add(discriminatingPropertyName, discriminatingProperty);
@@ -214,7 +297,7 @@ namespace Microsoft.Diagnostics.Monitoring.ConfigurationSchema
             return discriminatedProperty;
         }
 
-        private class GenerationContext
+        private sealed class GenerationContext
         {
             private readonly JsonSchemaGenerator _generator;
             private readonly JsonSchemaResolver _resolver;
@@ -224,9 +307,15 @@ namespace Microsoft.Diagnostics.Monitoring.ConfigurationSchema
             {
                 Schema = rootSchema;
 
-                _settings = new JsonSchemaGeneratorSettings();
-                _settings.SerializerSettings = new JsonSerializerSettings();
-                _settings.SerializerSettings.Converters.Add(new StringEnumConverter());
+                JsonSerializerSettings serializerSettings = new();
+                serializerSettings.Converters.Add(new StringEnumConverter());
+
+                _settings = new NewtonsoftJsonSchemaGeneratorSettings
+                {
+                    SerializerSettings = serializerSettings
+                };
+
+                _settings.SchemaProcessors.Add(new ExperimentalSchemaProcessor());
 
                 _resolver = new JsonSchemaResolver(rootSchema, _settings);
 

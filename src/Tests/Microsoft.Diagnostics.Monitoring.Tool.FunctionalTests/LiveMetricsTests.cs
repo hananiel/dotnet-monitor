@@ -1,34 +1,28 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
-using Microsoft.AspNetCore.Http;
 using Microsoft.Diagnostics.Monitoring.TestCommon;
 using Microsoft.Diagnostics.Monitoring.TestCommon.Runners;
 using Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.Fixtures;
 using Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.HttpApi;
-using Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.Models;
 using Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.Runners;
 using Microsoft.Diagnostics.Monitoring.WebApi;
 using Microsoft.Diagnostics.Monitoring.WebApi.Models;
+using Microsoft.Diagnostics.Tools.Monitor;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Net;
 using System.Net.Http;
-using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using System.Threading.Channels;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
+using Constants = Microsoft.Diagnostics.Monitoring.TestCommon.LiveMetricsTestConstants;
 
 namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
 {
+    [TargetFrameworkMonikerTrait(TargetFrameworkMonikerExtensions.CurrentTargetFrameworkMoniker)]
     [Collection(DefaultCollectionFixture.Name)]
     public class LiveMetricsTests
     {
@@ -51,11 +45,11 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
                 async (appRunner, apiClient) =>
                 {
                     using ResponseStreamHolder holder = await apiClient.CaptureMetricsAsync(await appRunner.ProcessIdTask,
-                        durationSeconds: 10);
-                    
-                    var metrics = GetAllMetrics(holder);
-                    await ValidateMetrics(new []{ EventPipe.MonitoringSourceConfiguration.SystemRuntimeEventSourceName },
-                        new []
+                        durationSeconds: CommonTestTimeouts.LiveMetricsDurationSeconds);
+
+                    var metrics = LiveMetricsTestUtilities.GetAllMetrics(holder.Stream);
+                    await LiveMetricsTestUtilities.ValidateMetrics(new[] { EventPipe.MonitoringSourceConfiguration.SystemRuntimeEventSourceName },
+                        new[]
                         {
                             "cpu-usage",
                             "working-set",
@@ -66,6 +60,16 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
                     metrics, strict: false);
 
                     await appRunner.SendCommandAsync(TestAppScenarios.AsyncWait.Commands.Continue);
+                },
+                configureTool: runner =>
+                {
+                    runner.WriteKeyPerValueConfiguration(new RootOptions()
+                    {
+                        GlobalCounter = new GlobalCounterOptions()
+                        {
+                            IntervalSeconds = 1
+                        }
+                    });
                 });
         }
 
@@ -81,7 +85,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
                     var counterNames = new[] { "cpu-usage", "working-set" };
 
                     using ResponseStreamHolder holder = await apiClient.CaptureMetricsAsync(await appRunner.ProcessIdTask,
-                        durationSeconds: 10,
+                        durationSeconds: CommonTestTimeouts.LiveMetricsDurationSeconds,
                         metricsConfiguration: new EventMetricsConfiguration
                         {
                             IncludeDefaultProviders = false,
@@ -95,66 +99,349 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
                             }
                         });
 
-                    var metrics = GetAllMetrics(holder);
-                    await ValidateMetrics(new []{ EventPipe.MonitoringSourceConfiguration.SystemRuntimeEventSourceName },
+                    var metrics = LiveMetricsTestUtilities.GetAllMetrics(holder.Stream);
+                    await LiveMetricsTestUtilities.ValidateMetrics(new[] { EventPipe.MonitoringSourceConfiguration.SystemRuntimeEventSourceName },
                         counterNames,
                         metrics,
                         strict: true);
 
                     await appRunner.SendCommandAsync(TestAppScenarios.AsyncWait.Commands.Continue);
+                },
+                configureTool: runner =>
+                {
+                    runner.WriteKeyPerValueConfiguration(new RootOptions()
+                    {
+                        GlobalCounter = new GlobalCounterOptions()
+                        {
+                            IntervalSeconds = 1
+                        }
+                    });
                 });
         }
 
-        private static async Task ValidateMetrics(IEnumerable<string> expectedProviders, IEnumerable<string> expectedNames,
-            IAsyncEnumerable<CounterPayload> actualMetrics, bool strict)
+        [Fact]
+        public async Task TestSystemDiagnosticsMetrics()
         {
-            HashSet<string> actualProviders = new();
-            HashSet<string> actualNames = new();
+            var instrumentNamesP1 = new[] { Constants.CounterName, Constants.GaugeName, Constants.HistogramName1, Constants.HistogramName2 };
+            var instrumentNamesP2 = new[] { Constants.CounterName };
 
-            await AggregateMetrics(actualMetrics, actualProviders, actualNames);
+            MetricProvider p1 = new MetricProvider()
+            {
+                ProviderName = Constants.ProviderName1
+            };
 
-            CompareSets(new HashSet<string>(expectedProviders), actualProviders, strict);
-            CompareSets(new HashSet<string>(expectedNames), actualNames, strict);
+            MetricProvider p2 = new MetricProvider()
+            {
+                ProviderName = Constants.ProviderName2
+            };
+
+            var providers = new List<MetricProvider>()
+            {
+                p1, p2
+            };
+
+            await ScenarioRunner.SingleTarget(
+                _outputHelper,
+                _httpClientFactory,
+                DiagnosticPortConnectionMode.Connect,
+                TestAppScenarios.Metrics.Name,
+                appValidate: async (runner, client) =>
+                {
+                    using ResponseStreamHolder holder = await client.CaptureMetricsAsync(await runner.ProcessIdTask,
+                        durationSeconds: CommonTestTimeouts.LiveMetricsDurationSeconds,
+                        metricsConfiguration: new EventMetricsConfiguration
+                        {
+                            IncludeDefaultProviders = false,
+                            Meters = new[]
+                            {
+                                new EventMetricsMeter
+                                {
+                                    MeterName = p1.ProviderName,
+                                    InstrumentNames = instrumentNamesP1,
+                                },
+                                new EventMetricsMeter
+                                {
+                                    MeterName = p2.ProviderName,
+                                    InstrumentNames = instrumentNamesP2,
+                                }
+                            }
+                        });
+
+                    await runner.SendCommandAsync(TestAppScenarios.Metrics.Commands.Continue);
+
+                    var metrics = LiveMetricsTestUtilities.GetAllMetrics(holder.Stream);
+
+                    List<string> actualMeterNames = new();
+                    List<string> actualInstrumentNames = new();
+                    List<string> actualMetadata = new();
+
+                    await LiveMetricsTestUtilities.AggregateMetrics(metrics, actualMeterNames, actualInstrumentNames, actualMetadata);
+
+                    LiveMetricsTestUtilities.ValidateMetrics(new[] { p1.ProviderName, p2.ProviderName },
+                        instrumentNamesP1,
+                        actualMeterNames.ToHashSet(),
+                        actualInstrumentNames.ToHashSet(),
+                        strict: true);
+
+                    // NOTE: This assumes the default percentiles of 50/95/99 - if this changes, this test
+                    // will fail and will need to be updated.
+                    Regex regex = new Regex(@"\bPercentile=(50|95|99)");
+
+                    for (int index = 0; index < actualMeterNames.Count; ++index)
+                    {
+                        if (actualInstrumentNames[index] == Constants.HistogramName1)
+                        {
+                            Assert.Matches(regex, actualMetadata[index]);
+                        }
+                        else if (actualInstrumentNames[index] == Constants.HistogramName2)
+                        {
+                            var metadata = actualMetadata[index].Split(',');
+                            Assert.Equal(2, metadata.Length);
+                            Assert.Equal(FormattableString.Invariant($"{Constants.MetadataKey}={Constants.MetadataValue}"), metadata[0]);
+                            Assert.Matches(regex, metadata[1]);
+                        }
+                    }
+                },
+                configureTool: runner =>
+                {
+                    runner.WriteKeyPerValueConfiguration(new RootOptions()
+                    {
+                        Metrics = new MetricsOptions()
+                        {
+                            Enabled = true,
+                            IncludeDefaultProviders = false,
+                            Providers = providers
+                        },
+                        GlobalCounter = new GlobalCounterOptions()
+                        {
+                            IntervalSeconds = 1
+                        }
+                    });
+                });
         }
 
-        private static void CompareSets(HashSet<string> expected, HashSet<string> actual, bool strict)
+        [Fact]
+        public async Task TestSystemDiagnosticsMetrics_MaxHistograms()
         {
-            bool matched = true;
-            if (strict && !expected.SetEquals(actual))
+            var instrumentNames = new[] { Constants.HistogramName1, Constants.HistogramName2 };
+
+            MetricProvider p1 = new MetricProvider()
             {
-                expected.SymmetricExceptWith(actual);
-                matched = false;
-            }
-            else if (!strict && !expected.IsSubsetOf(actual))
+                ProviderName = Constants.ProviderName1
+            };
+
+            var providers = new List<MetricProvider>()
             {
-                //actual must contain at least the elements in expected, but can contain more
-                expected.ExceptWith(actual);
-                matched = false;
-            }
-            Assert.True(matched, "Missing or unexpected elements: " + string.Join(",", expected));
+                p1
+            };
+
+            await ScenarioRunner.SingleTarget(
+                _outputHelper,
+                _httpClientFactory,
+                DiagnosticPortConnectionMode.Connect,
+                TestAppScenarios.Metrics.Name,
+                appValidate: async (runner, client) =>
+                {
+                    using ResponseStreamHolder holder = await client.CaptureMetricsAsync(await runner.ProcessIdTask,
+                        durationSeconds: CommonTestTimeouts.LiveMetricsDurationSeconds,
+                        metricsConfiguration: new EventMetricsConfiguration
+                        {
+                            IncludeDefaultProviders = false,
+                            Meters = new[]
+                            {
+                                new EventMetricsMeter
+                                {
+                                    MeterName = p1.ProviderName,
+                                    InstrumentNames = instrumentNames
+                                }
+                            }
+                        });
+
+                    await runner.SendCommandAsync(TestAppScenarios.Metrics.Commands.Continue);
+
+                    var metrics = LiveMetricsTestUtilities.GetAllMetrics(holder.Stream);
+
+                    List<string> actualMeterNames = new();
+                    List<string> actualInstrumentNames = new();
+                    List<string> actualMetadata = new();
+
+                    await LiveMetricsTestUtilities.AggregateMetrics(metrics, actualMeterNames, actualInstrumentNames, actualMetadata);
+
+                    Assert.Contains(Constants.HistogramName1, actualInstrumentNames);
+                    Assert.DoesNotContain(Constants.HistogramName2, actualInstrumentNames);
+                },
+                configureTool: runner =>
+                {
+                    runner.WriteKeyPerValueConfiguration(new RootOptions()
+                    {
+                        Metrics = new MetricsOptions()
+                        {
+                            Enabled = true,
+                            IncludeDefaultProviders = false,
+                            Providers = providers,
+                        },
+                        GlobalCounter = new GlobalCounterOptions()
+                        {
+                            IntervalSeconds = 1,
+                            MaxHistograms = 1
+                        }
+                    });
+                });
         }
 
-        private static async Task AggregateMetrics(IAsyncEnumerable<CounterPayload> actualMetrics,
-            HashSet<string> providers,
-            HashSet<string> names)
+        [Fact]
+        public async Task TestSystemDiagnosticsMetrics_MaxTimeseries()
         {
-            await foreach (CounterPayload counter in actualMetrics)
+            var instrumentNames = new[] { Constants.CounterName, Constants.GaugeName, Constants.HistogramName1, Constants.HistogramName2 };
+
+            const int maxTimeSeries = 3;
+
+            MetricProvider p1 = new MetricProvider()
             {
-                providers.Add(counter.Provider);
-                names.Add(counter.Name);
-            }
+                ProviderName = Constants.ProviderName1
+            };
+
+            var providers = new List<MetricProvider>()
+            {
+                p1
+            };
+
+            await ScenarioRunner.SingleTarget(
+                _outputHelper,
+                _httpClientFactory,
+                DiagnosticPortConnectionMode.Connect,
+                TestAppScenarios.Metrics.Name,
+                appValidate: async (runner, client) =>
+                {
+                    using ResponseStreamHolder holder = await client.CaptureMetricsAsync(await runner.ProcessIdTask,
+                        durationSeconds: CommonTestTimeouts.LiveMetricsDurationSeconds,
+                        metricsConfiguration: new EventMetricsConfiguration
+                        {
+                            IncludeDefaultProviders = false,
+                            Meters = new[]
+                            {
+                                new EventMetricsMeter
+                                {
+                                    MeterName = p1.ProviderName,
+                                    InstrumentNames = instrumentNames
+                                }
+                            }
+                        });
+
+                    await runner.SendCommandAsync(TestAppScenarios.Metrics.Commands.Continue);
+
+                    var metrics = LiveMetricsTestUtilities.GetAllMetrics(holder.Stream);
+
+                    List<string> actualMeterNames = new();
+                    List<string> actualInstrumentNames = new();
+                    List<string> actualMetadata = new();
+
+                    await LiveMetricsTestUtilities.AggregateMetrics(metrics, actualMeterNames, actualInstrumentNames, actualMetadata);
+
+                    ISet<string> actualNamesSet = new HashSet<string>(actualInstrumentNames);
+
+                    Assert.Equal(maxTimeSeries, actualNamesSet.Count);
+                },
+                configureTool: runner =>
+                {
+                    runner.WriteKeyPerValueConfiguration(new RootOptions()
+                    {
+                        Metrics = new MetricsOptions()
+                        {
+                            Enabled = true,
+                            IncludeDefaultProviders = false,
+                            Providers = providers
+                        },
+                        GlobalCounter = new GlobalCounterOptions()
+                        {
+                            IntervalSeconds = 1,
+                            MaxTimeSeries = maxTimeSeries
+                        }
+                    });
+                });
         }
 
-        private static async IAsyncEnumerable<CounterPayload> GetAllMetrics(ResponseStreamHolder holder)
+#if NET8_0_OR_GREATER
+        [Fact]
+        public async Task TestSystemDiagnosticsMetrics_MeterInstrumentTags()
         {
-            using var reader = new StreamReader(holder.Stream);
+            var instrumentNamesP3 = new[] { Constants.CounterName };
 
-            string entry = string.Empty;
-            while ((entry = await reader.ReadLineAsync()) != null)
+            MetricProvider p3 = new MetricProvider()
             {
-                Assert.Equal(StreamingLogger.JsonSequenceRecordSeparator, (byte)entry[0]);
-                yield return JsonSerializer.Deserialize<CounterPayload>(entry.Substring(1));
-            }
+                ProviderName = Constants.ProviderName3
+            };
+
+            var providers = new List<MetricProvider>()
+            {
+                p3
+            };
+
+            await ScenarioRunner.SingleTarget(
+                _outputHelper,
+                _httpClientFactory,
+                DiagnosticPortConnectionMode.Connect,
+                TestAppScenarios.Metrics.Name,
+                appValidate: async (runner, client) =>
+                {
+                    using ResponseStreamHolder holder = await client.CaptureMetricsAsync(await runner.ProcessIdTask,
+                        durationSeconds: CommonTestTimeouts.LiveMetricsDurationSeconds,
+                        metricsConfiguration: new EventMetricsConfiguration
+                        {
+                            IncludeDefaultProviders = false,
+                            Meters = new[]
+                            {
+                                new EventMetricsMeter
+                                {
+                                    MeterName = p3.ProviderName,
+                                    InstrumentNames = instrumentNamesP3,
+                                }
+                            }
+                        });
+
+                    await runner.SendCommandAsync(TestAppScenarios.Metrics.Commands.Continue);
+
+                    var metrics = LiveMetricsTestUtilities.GetAllMetrics(holder.Stream);
+
+                    List<string> actualMeterNames = new();
+                    List<string> actualInstrumentNames = new();
+                    List<string> actualMetadata = new();
+                    List<string> actualMeterTags = new();
+                    List<string> actualInstrumentTags = new();
+
+                    await LiveMetricsTestUtilities.AggregateMetrics(metrics, actualMeterNames, actualInstrumentNames, actualMetadata, actualMeterTags, actualInstrumentTags);
+
+                    LiveMetricsTestUtilities.ValidateMetrics(new[] { p3.ProviderName },
+                        instrumentNamesP3,
+                        actualMeterNames.ToHashSet(),
+                        actualInstrumentNames.ToHashSet(),
+                        strict: true);
+
+                    string actualMeterTag = Assert.Single(actualMeterTags.Distinct());
+                    string expectedMeterTag = Constants.MeterMetadataKey + "=" + Constants.MeterMetadataValue;
+                    Assert.Equal(expectedMeterTag, actualMeterTag);
+
+                    string actualInstrumentTag = Assert.Single(actualInstrumentTags.Distinct());
+                    string expectedInstrumentTag = Constants.InstrumentMetadataKey + "=" + Constants.InstrumentMetadataValue;
+                    Assert.Equal(expectedInstrumentTag, actualInstrumentTag);
+                },
+                configureTool: runner =>
+                {
+                    runner.WriteKeyPerValueConfiguration(new RootOptions()
+                    {
+                        Metrics = new MetricsOptions()
+                        {
+                            Enabled = true,
+                            IncludeDefaultProviders = false,
+                            Providers = providers
+                        },
+                        GlobalCounter = new GlobalCounterOptions()
+                        {
+                            IntervalSeconds = 1
+                        }
+                    });
+                });
         }
+#endif
     }
 }

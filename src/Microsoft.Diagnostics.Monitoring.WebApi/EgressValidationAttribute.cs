@@ -1,19 +1,18 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Primitives;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Primitives;
 using System;
 
 namespace Microsoft.Diagnostics.Monitoring.WebApi
 {
     [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
-    internal sealed class EgressValidationAttribute : ActionFilterAttribute, IFilterFactory
+    public sealed class EgressValidationAttribute : ActionFilterAttribute, IFilterFactory
     {
         public bool IsReusable => true;
 

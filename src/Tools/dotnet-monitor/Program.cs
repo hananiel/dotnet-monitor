@@ -1,145 +1,232 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Diagnostics.Monitoring.WebApi;
 using Microsoft.Diagnostics.Tools.Monitor.Commands;
-using Microsoft.Tools.Common;
-using System.Collections.Generic;
+using System;
 using System.CommandLine;
-using System.CommandLine.Builder;
-using System.CommandLine.Invocation;
-using System.CommandLine.Parsing;
+using System.IO;
 using System.Threading.Tasks;
 
 namespace Microsoft.Diagnostics.Tools.Monitor
 {
-    class Program
+    internal static class Program
     {
-        private static Command GenerateApiKeyCommand() =>
-            new Command(
+        private static CliCommand GenerateApiKeyCommand()
+        {
+            CliCommand command = new CliCommand(
                 name: "generatekey",
                 description: Strings.HelpDescription_CommandGenerateKey)
             {
-                CommandHandler.Create(GenerateApiKeyCommandHandler.Invoke),
-                Output()
+                OutputOption,
+                ExpirationOption
             };
 
-        private static Command CollectCommand() =>
-            new Command(
+            command.SetAction((result) =>
+            {
+                GenerateApiKeyCommandHandler.Invoke(
+                    result.GetValue(OutputOption),
+                    result.GetValue(ExpirationOption),
+                    result.Configuration.Output);
+            });
+
+            return command;
+        }
+
+        private static CliCommand CollectCommand()
+        {
+            CliCommand command = new CliCommand(
                 name: "collect",
                 description: Strings.HelpDescription_CommandCollect)
             {
-                // Handler
-                CommandHandler.Create(CollectCommandHandler.Invoke),
-                SharedOptions()
+                UrlsOption,
+                MetricUrlsOption,
+                ProvideMetricsOption,
+                DiagnosticPortOption,
+                NoAuthOption,
+                TempApiKeyOption,
+                NoHttpEgressOption,
+                ConfigurationFilePathOption,
+                ExitOnStdinDisconnect
             };
 
-        private static Command ConfigCommand() =>
-            new Command(
+            command.SetAction((result, token) =>
+            {
+                return CollectCommandHandler.Invoke(
+                    token,
+                    result.GetValue(UrlsOption),
+                    result.GetValue(MetricUrlsOption),
+                    result.GetValue(ProvideMetricsOption),
+                    result.GetValue(DiagnosticPortOption),
+                    result.GetValue(NoAuthOption),
+                    result.GetValue(TempApiKeyOption),
+                    result.GetValue(NoHttpEgressOption),
+                    result.GetValue(ConfigurationFilePathOption),
+                    result.GetValue(ExitOnStdinDisconnect));
+            });
+
+            return command;
+        }
+
+        private static CliCommand ConfigCommand()
+        {
+            CliCommand showCommand = new CliCommand(
+                name: "show",
+                description: Strings.HelpDescription_CommandShow)
+            {
+                UrlsOption,
+                MetricUrlsOption,
+                ProvideMetricsOption,
+                DiagnosticPortOption,
+                NoAuthOption,
+                TempApiKeyOption,
+                NoHttpEgressOption,
+                ConfigurationFilePathOption,
+                ConfigLevelOption,
+                ShowSourcesOption
+            };
+
+            showCommand.SetAction(result =>
+            {
+                ConfigShowCommandHandler.Invoke(
+                    result.GetValue(UrlsOption),
+                    result.GetValue(MetricUrlsOption),
+                    result.GetValue(ProvideMetricsOption),
+                    result.GetValue(DiagnosticPortOption),
+                    result.GetValue(NoAuthOption),
+                    result.GetValue(TempApiKeyOption),
+                    result.GetValue(NoHttpEgressOption),
+                    result.GetValue(ConfigurationFilePathOption),
+                    result.GetValue(ConfigLevelOption),
+                    result.GetValue(ShowSourcesOption));
+            });
+
+            CliCommand configCommand = new CliCommand(
                 name: "config",
                 description: Strings.HelpDescription_CommandConfig)
             {
-                new Command(
-                    name: "show",
-                    description: Strings.HelpDescription_CommandShow)
-                {
-                    // Handler
-                    CommandHandler.Create(ConfigShowCommandHandler.Invoke),
-                    SharedOptions(),
-                    ConfigLevel()
-                }
+                showCommand
             };
 
-        private static IEnumerable<Option> SharedOptions() => new Option[]
-        {
-            Urls(), MetricUrls(), ProvideMetrics(), DiagnosticPort(), NoAuth(), TempApiKey(), NoHttpEgress()
-        };
-        
-        private static Option Urls() =>
-            new Option(
-                aliases: new[] { "-u", "--urls" },
-                description: Strings.HelpDescription_OptionUrls)
+            return configCommand;
+        }
+
+        private static CliOption<string[]> UrlsOption =
+            new CliOption<string[]>("--urls", "-u")
             {
-                Argument = new Argument<string[]>(name: "urls", getDefaultValue: () => new[] { "https://localhost:52323" })
+                DefaultValueFactory = (_) => new[] { "https://localhost:52323" },
+                Description = Strings.HelpDescription_OptionUrls,
+                HelpName = "urls"
             };
 
-        private static Option MetricUrls() =>
-            new Option(
-                aliases: new[] { "--metricUrls" },
-                description: Strings.HelpDescription_OptionMetricsUrls)
+        private static CliOption<string[]> MetricUrlsOption =
+            new CliOption<string[]>("--metricUrls")
             {
-                Argument = new Argument<string[]>(name: "metricUrls", getDefaultValue: () => new[] { "http://localhost:52325" })
+                DefaultValueFactory = (_) => new[] { "http://localhost:52325" },
+                Description = Strings.HelpDescription_OptionMetricsUrls,
+                HelpName = "metricUrls"
             };
 
-        private static Option ProvideMetrics() =>
-            new Option(
-                aliases: new[] { "-m", "--metrics" },
-                description: Strings.HelpDescription_OptionMetrics)
+        private static CliOption<bool> ProvideMetricsOption =
+            new CliOption<bool>("--metrics", "-m")
             {
-                Argument = new Argument<bool>(name: "metrics", getDefaultValue: () => true)
+                DefaultValueFactory = (_) => true,
+                Description = Strings.HelpDescription_OptionMetrics,
+                HelpName = "metrics"
             };
 
-        private static Option DiagnosticPort() =>
-            new Option(
-                alias: "--diagnostic-port",
-                description: Strings.HelpDescription_OptionDiagnosticPort)
+        private static CliOption<string> DiagnosticPortOption =
+            new CliOption<string>("--diagnostic-port")
             {
-                Argument = new Argument<string>(name: "diagnosticPort")
+                Description = Strings.HelpDescription_OptionDiagnosticPort,
+                HelpName = "diagnosticPort"
             };
 
-        private static Option NoAuth() =>
-            new Option(
-                alias: "--no-auth",
-                description: Strings.HelpDescription_OptionNoAuth
-                )
+        private static CliOption<FileInfo> ConfigurationFilePathOption =
+            new CliOption<FileInfo>("--configuration-file-path")
             {
-                Argument = new Argument<bool>(name: "noAuth", getDefaultValue: () => false)
+                Description = Strings.HelpDescription_OptionConfigurationFilePath,
+                HelpName = "configurationFilePath"
             };
 
-        private static Option NoHttpEgress() =>
-            new Option(
-                alias: "--no-http-egress",
-                description: Strings.HelpDescription_OptionNoHttpEgress
-                )
+        private static CliOption<bool> NoAuthOption =
+            new CliOption<bool>("--no-auth")
             {
-                Argument = new Argument<bool>(name: "noHttpEgress", getDefaultValue: () => false)
+                DefaultValueFactory = (_) => false,
+                Description = Strings.HelpDescription_OptionNoAuth,
+                HelpName = "noAuth"
             };
 
-        private static Option TempApiKey() =>
-            new Option(
-                alias: "--temp-apikey",
-                description: Strings.HelpDescription_OptionTempApiKey
-                )
+        private static CliOption<bool> NoHttpEgressOption =
+            new CliOption<bool>("--no-http-egress")
             {
-                Argument = new Argument<bool>(name: "tempApiKey", getDefaultValue: () => false)
+                DefaultValueFactory = (_) => false,
+                Description = Strings.HelpDescription_OptionNoHttpEgress,
+                HelpName = "noHttpEgress"
             };
 
-        private static Option Output() =>
-            new Option(
-                aliases: new[] { "-o", "--output" },
-                description: Strings.HelpDescription_OutputFormat)
+        private static CliOption<bool> TempApiKeyOption =
+            new CliOption<bool>("--temp-apikey")
             {
-                Argument = new Argument<OutputFormat>(name: "output", getDefaultValue: () => OutputFormat.Json)
+                DefaultValueFactory = (_) => false,
+                Description = Strings.HelpDescription_OptionTempApiKey,
+                HelpName = "tempApiKey"
             };
 
-        private static Option ConfigLevel() =>
-            new Option(
-                alias: "--level",
-                description: Strings.HelpDescription_OptionLevel)
+        private static CliOption<OutputFormat> OutputOption =
+            new CliOption<OutputFormat>("--output", "-o")
             {
-                Argument = new Argument<ConfigDisplayLevel>(name: "level", getDefaultValue: () => ConfigDisplayLevel.Redacted)
+                DefaultValueFactory = (_) => OutputFormat.Json,
+                Description = Strings.HelpDescription_OutputFormat,
+                HelpName = "output"
+            };
+
+        private static CliOption<TimeSpan> ExpirationOption =
+            new CliOption<TimeSpan>("--expiration", "-e")
+            {
+                DefaultValueFactory = (_) => AuthConstants.ApiKeyJwtDefaultExpiration,
+                Description = Strings.HelpDescription_Expiration,
+                HelpName = "expiration"
+            };
+
+        private static CliOption<ConfigDisplayLevel> ConfigLevelOption =
+            new CliOption<ConfigDisplayLevel>("--level")
+            {
+                DefaultValueFactory = (_) => ConfigDisplayLevel.Redacted,
+                Description = Strings.HelpDescription_OptionLevel,
+                HelpName = "level"
+            };
+
+        private static CliOption<bool> ShowSourcesOption =
+            new CliOption<bool>("--show-sources")
+            {
+                DefaultValueFactory = (_) => false,
+                Description = Strings.HelpDescription_OptionShowSources,
+                HelpName = "showSources"
+            };
+
+        private static CliOption<bool> ExitOnStdinDisconnect =
+            new CliOption<bool>("--exit-on-stdin-disconnect")
+            {
+                DefaultValueFactory = (_) => false,
+                Description = Strings.HelpDescription_OptionExitOnStdinDisconnect
             };
 
         public static Task<int> Main(string[] args)
         {
-            var parser = new CommandLineBuilder()
-                .AddCommand(CollectCommand())
-                .AddCommand(ConfigCommand())
-                .AddCommand(GenerateApiKeyCommand())
-                .UseDefaults()
-                .Build();
-            return parser.InvokeAsync(args);
+            // Prevent child processes from inheriting startup hooks
+            Environment.SetEnvironmentVariable(ToolIdentifiers.EnvironmentVariables.StartupHooks, null);
+
+            TestAssemblies.SimulateStartupHook();
+
+            CliRootCommand root = new()
+            {
+                CollectCommand(),
+                ConfigCommand(),
+                GenerateApiKeyCommand()
+            };
+
+            return root.Parse(args).InvokeAsync();
         }
     }
 

@@ -1,36 +1,43 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Monitoring.TestCommon;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Collections;
 using System.Threading.Tasks;
 
 namespace Microsoft.Diagnostics.Monitoring.UnitTestApp
 {
     internal static class AppCommands
     {
-        public static async Task<bool> TryProcessAppCommand(string potentialCommand, ILogger logger)
+        public static Task<bool> TryProcessAppCommand(string potentialCommand, ILogger logger)
         {
             switch (potentialCommand)
             {
                 case TestAppScenarios.Commands.PrintEnvironmentVariables:
-                    await PrintEnvironmentVariables(logger);
-                    return true;
+                    LogEnvironmentVariables(logger);
+                    return Task.FromResult(true);
             }
-            return false;
+
+            return Task.FromResult(false);
         }
 
-        private static Task PrintEnvironmentVariables(ILogger logger)
+        private static void LogEnvironmentVariables(ILogger logger)
         {
-            IDictionary vars = Environment.GetEnvironmentVariables();
-            foreach (DictionaryEntry entry in vars)
+            // Only log specific variables required for testing instead of logging all environment variables
+            LogEnvironmentVariableIfExist(logger, ProfilerIdentifiers.MutatingProfiler.EnvironmentVariables.ProductVersion);
+            LogEnvironmentVariableIfExist(logger, ProfilerIdentifiers.NotifyOnlyProfiler.EnvironmentVariables.ProductVersion);
+            LogEnvironmentVariableIfExist(logger, TestAppScenarios.EnvironmentVariables.CustomVariableName);
+            LogEnvironmentVariableIfExist(logger, TestAppScenarios.EnvironmentVariables.IncrementVariableName);
+        }
+
+        private static void LogEnvironmentVariableIfExist(ILogger logger, string name)
+        {
+            string value = Environment.GetEnvironmentVariable(name);
+            if (!string.IsNullOrEmpty(value))
             {
-                logger.EnvironmentVariable((string)entry.Key, (string)entry.Value);
+                logger.EnvironmentVariable(name, value);
             }
-            return Task.CompletedTask;
         }
     }
 }

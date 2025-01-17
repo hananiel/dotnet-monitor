@@ -1,8 +1,8 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using System;
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace Microsoft.Diagnostics.Monitoring.WebApi.Models
@@ -20,6 +20,33 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi.Models
 
         [JsonPropertyName("status")]
         public OperationState Status { get; set; }
+
+        [JsonPropertyName("process")]
+        public OperationProcessInfo? Process { get; set; }
+
+        [JsonPropertyName("egressProviderName")]
+        public string? EgressProviderName { get; set; }
+
+        [JsonPropertyName("isStoppable")]
+        public bool IsStoppable { get; set; }
+
+        [JsonPropertyName("tags")]
+        public ISet<string>? Tags { get; set; }
+    }
+
+    /// <summary>
+    /// Represents the details of a given process used in an operation.
+    /// </summary>
+    public class OperationProcessInfo
+    {
+        [JsonPropertyName("pid")]
+        public int ProcessId { get; set; }
+
+        [JsonPropertyName("uid")]
+        public Guid Uid { get; set; }
+
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
     }
 
     /// <summary>
@@ -31,28 +58,30 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi.Models
 
         //Success cases
         [JsonPropertyName("resourceLocation")]
-        public string ResourceLocation { get; set; }
+        public string? ResourceLocation { get; set; }
 
         //Failure cases
         [JsonPropertyName("error")]
-        public OperationError Error { get; set; }
+        public OperationError? Error { get; set; }
     }
 
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public enum OperationState
     {
+        Starting,
         Running,
         Succeeded,
         Failed,
-        Cancelled
+        Cancelled,
+        Stopping
     }
 
     public class OperationError
     {
         [JsonPropertyName("code")]
-        public string Code { get; set; }
+        public string? Code { get; set; }
 
         [JsonPropertyName("message")]
-        public string Message { get; set; }
+        public string? Message { get; set; }
     }
 }

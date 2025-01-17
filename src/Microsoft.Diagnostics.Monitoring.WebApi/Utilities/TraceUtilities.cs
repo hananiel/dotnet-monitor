@@ -1,6 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Monitoring.EventPipe;
 using Microsoft.Diagnostics.Monitoring.WebApi.Validation;
@@ -8,21 +7,13 @@ using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Microsoft.Diagnostics.Monitoring.WebApi
 {
     internal static class TraceUtilities
     {
-        public static string GenerateTraceFileName(IEndpointInfo endpointInfo)
-        {
-            return FormattableString.Invariant($"{Utilities.GetFileNameTimeStampUtcNow()}_{endpointInfo.ProcessId}.nettrace");
-        }
-
-        public static MonitoringSourceConfiguration GetTraceConfiguration(Models.TraceProfile profile, float metricsIntervalSeconds)
+        public static MonitoringSourceConfiguration GetTraceConfiguration(Models.TraceProfile profile, GlobalCounterOptions options)
         {
             var configurations = new List<MonitoringSourceConfiguration>();
             if (profile.HasFlag(Models.TraceProfile.Cpu))
@@ -39,11 +30,23 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
                     LogLevel.Trace,
                     LogMessageType.FormattedMessage | LogMessageType.JsonMessage,
                     filterSpecs: null,
-                    useAppFilters: true));
+                    useAppFilters: true,
+                    collectScopes: true));
             }
             if (profile.HasFlag(Models.TraceProfile.Metrics))
             {
-                configurations.Add(new MetricSourceConfiguration(metricsIntervalSeconds, Enumerable.Empty<string>()));
+                IEnumerable<MetricEventPipeProvider> defaultProviders = MonitoringSourceConfiguration.DefaultMetricProviders.Select(provider => new MetricEventPipeProvider
+                {
+                    Provider = provider,
+                    IntervalSeconds = options.GetProviderSpecificInterval(provider),
+                    Type = MetricType.EventCounter
+                });
+
+                configurations.Add(new MetricSourceConfiguration(options.GetIntervalSeconds(), defaultProviders));
+            }
+            if (profile.HasFlag(Models.TraceProfile.GcCollect))
+            {
+                configurations.Add(new GcCollectConfiguration());
             }
 
             return new AggregateSourceConfiguration(configurations.ToArray());
@@ -55,7 +58,7 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
 
             foreach (Models.EventPipeProvider providerModel in configurationProviders)
             {
-                if (!IntegerOrHexStringAttribute.TryParse(providerModel.Keywords, out long keywords, out string parseError))
+                if (!IntegerOrHexStringAttribute.TryParse(providerModel.Keywords, out long keywords, out string? parseError))
                 {
                     throw new InvalidOperationException(parseError);
                 }
@@ -70,32 +73,8 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
 
             return new EventPipeProviderSourceConfiguration(
                 providers: providers.ToArray(),
-                requestRundown: requestRundown,
+                rundownKeyword: requestRundown ? EventPipeSession.DefaultRundownKeyword : 0,
                 bufferSizeInMB: bufferSizeInMB);
-        }
-
-        public static async Task CaptureTraceAsync(TaskCompletionSource<object> startCompletionSource, IEndpointInfo endpointInfo, MonitoringSourceConfiguration configuration, TimeSpan duration, Stream outputStream, CancellationToken token)
-        {
-            Func<Stream, CancellationToken, Task> streamAvailable = async (Stream eventStream, CancellationToken token) =>
-            {
-                if (null != startCompletionSource)
-                {
-                    startCompletionSource.TrySetResult(null);
-                }
-                //Buffer size matches FileStreamResult
-                //CONSIDER Should we allow client to change the buffer size?
-                await eventStream.CopyToAsync(outputStream, 0x10000, token);
-            };
-
-            var client = new DiagnosticsClient(endpointInfo.Endpoint);
-
-            await using EventTracePipeline pipeProcessor = new EventTracePipeline(client, new EventTracePipelineSettings
-            {
-                Configuration = configuration,
-                Duration = duration,
-            }, streamAvailable);
-
-            await pipeProcessor.RunAsync(token);
         }
     }
 }

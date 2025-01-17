@@ -1,6 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Monitoring.EventPipe;
 using Microsoft.Diagnostics.Monitoring.EventPipe.Triggers;
@@ -19,7 +18,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Triggers
         /// Creates a collection rule trigger sourced from the event pipe of the target
         /// process represented by the specified endpoint.
         /// </summary>
-        public ICollectionRuleTrigger Create<TSettings>(
+        public static ICollectionRuleTrigger Create<TSettings>(
             IEndpointInfo endpointInfo,
             MonitoringSourceConfiguration configuration,
             ITraceEventTriggerFactory<TSettings> factory,

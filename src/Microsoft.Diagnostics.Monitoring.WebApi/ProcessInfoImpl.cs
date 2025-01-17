@@ -1,6 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Monitoring.EventPipe;
 using Microsoft.Diagnostics.NETCore.Client;
@@ -22,7 +21,7 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
 
         // String returned for a process field when its value could not be retrieved. This is the same
         // value that is returned by the runtime when it could not determine the value for each of those fields.
-        private static readonly string ProcessFieldUnknownValue = "unknown";
+        private const string ProcessFieldUnknownValue = "unknown";
 
         // The value of the operating system field of the ProcessInfo result when the target process is running
         // on a Windows operating system.
@@ -30,8 +29,8 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
 
         public ProcessInfoImpl(
             IEndpointInfo endpointInfo,
-            string commandLine,
-            string processName)
+            string? commandLine,
+            string? processName)
         {
             EndpointInfo = endpointInfo;
 
@@ -43,14 +42,14 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
             ProcessName = processName ?? ProcessFieldUnknownValue;
         }
 
-        public static async Task<IProcessInfo> FromEndpointInfoAsync(IEndpointInfo endpointInfo)
+        public static async Task<IProcessInfo> FromEndpointInfoAsync(IEndpointInfo endpointInfo, TimeSpan? timeout = null)
         {
-            using CancellationTokenSource extendedInfoCancellation = new(ExtendedProcessInfoTimeout);
-            return await FromEndpointInfoAsync(endpointInfo, extendedInfoCancellation.Token);
+            using CancellationTokenSource tokenSource = new CancellationTokenSource(timeout ?? ExtendedProcessInfoTimeout);
+            return await FromEndpointInfoAsync(endpointInfo, tokenSource.Token);
         }
 
         // Creates an IProcessInfo object from the IEndpointInfo. Attempts to get the command line using event pipe
-        // if the endpoint information doesn't provide it. The cancelation token can be used to timebox this fallback
+        // if the endpoint information doesn't provide it. The cancellation token can be used to timebox this fallback
         // mechanism.
         public static async Task<IProcessInfo> FromEndpointInfoAsync(IEndpointInfo endpointInfo, CancellationToken extendedInfoCancellationToken)
         {
@@ -61,20 +60,20 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
 
             DiagnosticsClient client = new(endpointInfo.Endpoint);
 
-            string commandLine = endpointInfo.CommandLine;
+            string? commandLine = endpointInfo.CommandLine;
             if (string.IsNullOrEmpty(commandLine))
             {
-                // The EventProcessInfoPipeline will frequently hang during disposal of its
+                // The EventProcessInfoPipeline will frequently block during disposal of its
                 // EventPipeStreamProvider, which is trying to send a SessionStop command to
                 // stop the event pipe session. When this happens, it waits for the 30 timeout
                 // before giving up. Because this is happening during a disposal call, it is
                 // not cancellable and hangs the entire operation for at least 30 seconds. To
                 // mitigate, start the pipeline, get the command line, and they start the disposal
                 // on a separate Task that is not awaited.
-                EventProcessInfoPipeline pipeline = null;
+                EventProcessInfoPipeline? pipeline = null;
                 try
                 {
-                    TaskCompletionSource<string> commandLineSource =
+                    TaskCompletionSource<string?> commandLineSource =
                         new(TaskCreationOptions.RunContinuationsAsynchronously);
 
                     using IDisposable registration = extendedInfoCancellationToken.Register(
@@ -92,24 +91,37 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
 
                     commandLine = await commandLineSource.Task;
                 }
-                catch
+                catch (PipelineException)
+                {
+                }
+                catch (OperationCanceledException)
                 {
                 }
                 finally
                 {
                     if (null != pipeline)
                     {
-                        _ = Task.Run(() => pipeline.DisposeAsync());
+                        _ = Task.Run(pipeline.DisposeAsync);
                     }
                 }
             }
 
-            string processName = null;
+            string? processName = GetProcessName(commandLine, endpointInfo.OperatingSystem);
+
+            return new ProcessInfoImpl(
+                endpointInfo,
+                commandLine,
+                processName);
+        }
+
+        internal static string? GetProcessName(string? commandLine, string? operatingSystem)
+        {
+            string? processName = null;
             if (!string.IsNullOrEmpty(commandLine))
             {
                 // Get the process name from the command line
-                bool isWindowsProcess = false;
-                if (string.IsNullOrEmpty(endpointInfo.OperatingSystem))
+                bool isWindowsProcess;
+                if (string.IsNullOrEmpty(operatingSystem))
                 {
                     // If operating system is null, the process is likely .NET Core 3.1 (which doesn't have the GetProcessInfo command).
                     // Since the underlying diagnostic communication channel used by the .NET runtime requires that the diagnostic process
@@ -120,7 +132,7 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
                 }
                 else
                 {
-                    isWindowsProcess = ProcessOperatingSystemWindowsValue.Equals(endpointInfo.OperatingSystem, StringComparison.OrdinalIgnoreCase);
+                    isWindowsProcess = ProcessOperatingSystemWindowsValue.Equals(operatingSystem, StringComparison.OrdinalIgnoreCase);
                 }
 
                 string processPath = CommandLineHelper.ExtractExecutablePath(commandLine, isWindowsProcess);
@@ -135,10 +147,7 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
                 }
             }
 
-            return new ProcessInfoImpl(
-                endpointInfo,
-                commandLine,
-                processName);
+            return processName;
         }
 
         public IEndpointInfo EndpointInfo { get; }

@@ -1,6 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -15,7 +14,9 @@ namespace Microsoft.Diagnostics.Tools.Monitor
     internal class MetricsPortsProvider : IMetricsPortsProvider
     {
         private readonly AddressListenResults _results;
+#nullable disable
         private readonly IServerAddressesFeature _serverAddresses;
+#nullable restore
 
         public MetricsPortsProvider(AddressListenResults results, IServer server)
         {

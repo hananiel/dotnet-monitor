@@ -1,6 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -14,7 +13,7 @@ using System.Net;
 
 namespace Microsoft.Diagnostics.Tools.Monitor
 {
-    
+
     // Consolidates the configuration of addresses in Kestrel and recording which address
     // is which type (default vs metrics). The recording logic uses the count of each type
     // of correctly configured address so it makes sense to keep this logic within the same
@@ -28,6 +27,8 @@ namespace Microsoft.Diagnostics.Tools.Monitor
             = new List<AddressListenResult>();
 
         public bool AnyAddresses => (_defaultAddressCount + _metricsAddressCount) > 0;
+
+        public bool HasInsecureAuthentication { get; private set; }
 
         public IEnumerable<string> GetDefaultAddresses(IServerAddressesFeature serverAddresses)
         {
@@ -44,11 +45,11 @@ namespace Microsoft.Diagnostics.Tools.Monitor
         /// <summary>
         /// Configures <see cref="KestrelServerOptions"/> with the specified default and metrics URLs.
         /// </summary>
-        public void Listen(KestrelServerOptions options, IEnumerable<string> defaultUrls, IEnumerable<string> metricsUrls)
+        public void Listen(KestrelServerOptions options, IEnumerable<string> defaultUrls, IEnumerable<string> metricsUrls, bool isAuthEnabled)
         {
             foreach (string url in defaultUrls)
             {
-                if (Listen(options, url))
+                if (Listen(options, url, isAuthEnabled))
                 {
                     _defaultAddressCount++;
                 }
@@ -56,7 +57,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor
 
             foreach (string url in metricsUrls)
             {
-                if (Listen(options, url))
+                if (Listen(options, url, isAuthEnabled: false))
                 {
                     _metricsAddressCount++;
                 }
@@ -66,9 +67,9 @@ namespace Microsoft.Diagnostics.Tools.Monitor
         /// <summary>
         /// Configure the <see cref="KestrelServerOptions"/> with the specified URL.
         /// </summary>
-        private bool Listen(KestrelServerOptions options, string url)
+        private bool Listen(KestrelServerOptions options, string url, bool isAuthEnabled)
         {
-            BindingAddress address = null;
+            BindingAddress? address = null;
             try
             {
                 address = BindingAddress.Parse(url);
@@ -94,7 +95,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor
                 {
                     options.ListenLocalhost(address.Port, configureListenOptions);
                 }
-                else if (IPAddress.TryParse(address.Host, out IPAddress ipAddress))
+                else if (IPAddress.TryParse(address.Host, out IPAddress? ipAddress))
                 {
                     options.Listen(ipAddress, address.Port, configureListenOptions);
                 }
@@ -109,6 +110,11 @@ namespace Microsoft.Diagnostics.Tools.Monitor
                 // Record the exception; it will be logged later through ILogger.
                 Errors.Add(new AddressListenResult(url, ex));
                 return false;
+            }
+
+            if (isAuthEnabled && address.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase))
+            {
+                HasInsecureAuthentication = true;
             }
 
             return true;

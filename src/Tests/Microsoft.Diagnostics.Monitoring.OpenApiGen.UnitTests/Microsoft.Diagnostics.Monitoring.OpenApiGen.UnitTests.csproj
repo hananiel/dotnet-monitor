@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFrameworks>$(ToolTargetFrameworks)</TargetFrameworks>
     <OutputType>Library</OutputType>
   </PropertyGroup>
 
@@ -12,7 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.OpenApi.Readers" Version="$(MicrosoftOpenApiReadersVersion)" />
+    <PackageReference Include="Microsoft.OpenApi.Readers" />
   </ItemGroup>
 
   <ItemGroup>

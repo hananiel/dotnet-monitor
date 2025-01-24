@@ -1,6 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using System;
 using System.IO;
@@ -11,15 +10,7 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
 {
     internal interface IEgressService
     {
-        void ValidateProvider(string providerName);
-
-        Task<EgressResult> EgressAsync(
-            string providerName,
-            Func<CancellationToken, Task<Stream>> action,
-            string fileName,
-            string contentType,
-            IEndpointInfo source,
-            CancellationToken token);
+        void ValidateProviderExists(string providerName);
 
         Task<EgressResult> EgressAsync(
             string providerName,
@@ -27,6 +18,11 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
             string fileName,
             string contentType,
             IEndpointInfo source,
+            CollectionRuleMetadata? collectionRuleMetadata,
+            CancellationToken token);
+
+        Task ValidateProviderOptionsAsync(
+            string providerName,
             CancellationToken token);
     }
 }

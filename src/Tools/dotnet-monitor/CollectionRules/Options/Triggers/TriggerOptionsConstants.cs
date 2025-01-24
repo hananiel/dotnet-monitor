@@ -1,8 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
-
-using System.Globalization;
 
 namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Options.Triggers
 {
@@ -12,5 +9,8 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Options.Triggers
         public const string SlidingWindowDuration_Default = "00:01:00"; // 1 minute
         public const string SlidingWindowDuration_MaxValue = "1.00:00:00"; // 1 day
         public const string SlidingWindowDuration_MinValue = "00:00:01"; // 1 second
+
+        public const double Percentage_MinValue = 0;
+        public const double Percentage_MaxValue = 100;
     }
 }

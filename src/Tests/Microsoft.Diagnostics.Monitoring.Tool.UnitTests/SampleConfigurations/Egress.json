@@ -1,0 +1,12 @@
+{
+  "Egress": {
+    "FileSystem": {
+      "artifacts": {
+        "directoryPath": "/artifacts"
+      }
+    },
+    "Properties": {
+      "MonitorBlobAccountKey": "accountKey"
+    }
+  }
+}

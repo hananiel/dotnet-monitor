@@ -1,6 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
@@ -18,24 +17,22 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
     {
         private static readonly ExecutionResult<T> _empty = new ExecutionResult<T>();
 
-        public T Result { get; private set; }
-        public ProblemDetails ProblemDetails { get; private set; }
+        public Exception? Exception { get; private set; }
+        public T? Result { get; private set; }
+        public ProblemDetails? ProblemDetails { get; private set; }
 
         private ExecutionResult() { }
 
         public static ExecutionResult<T> Succeeded(T result) => new ExecutionResult<T> { Result = result };
 
-        public static ExecutionResult<T> Failed(ProblemDetails problemDetails) =>
-            new ExecutionResult<T> { ProblemDetails = problemDetails };
+        public static ExecutionResult<T> Failed(Exception exception) =>
+            new ExecutionResult<T> { Exception = exception, ProblemDetails = exception.ToProblemDetails((int)HttpStatusCode.BadRequest) };
 
         public static ExecutionResult<T> Empty() => _empty;
     }
 
     internal static class ExecutionHelper
     {
-        private static ExecutionResult<T> ExceptionToResult<T>(Exception ex) =>
-            ExecutionResult<T>.Failed(ex.ToProblemDetails((int)HttpStatusCode.BadRequest));
-
         public static async Task<ExecutionResult<T>> InvokeAsync<T>(Func<CancellationToken, Task<ExecutionResult<T>>> action, ILogger logger,
             CancellationToken token)
         {
@@ -49,35 +46,35 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
             }
             catch (ArgumentException ex) when (LogError(logger, ex))
             {
-                return ExceptionToResult<T>(ex);
+                return ExecutionResult<T>.Failed(ex);
             }
             catch (DiagnosticsClientException ex) when (LogError(logger, ex))
             {
-                return ExceptionToResult<T>(ex);
+                return ExecutionResult<T>.Failed(ex);
             }
             catch (InvalidOperationException ex) when (LogError(logger, ex))
             {
-                return ExceptionToResult<T>(ex);
+                return ExecutionResult<T>.Failed(ex);
             }
             catch (OperationCanceledException ex) when (token.IsCancellationRequested && LogInformation(logger, ex))
             {
-                return ExceptionToResult<T>(ex);
+                return ExecutionResult<T>.Failed(ex);
             }
             catch (OperationCanceledException ex) when (LogError(logger, ex))
             {
-                return ExceptionToResult<T>(ex);
+                return ExecutionResult<T>.Failed(ex);
             }
             catch (MonitoringException ex) when (LogError(logger, ex))
             {
-                return ExceptionToResult<T>(ex);
+                return ExecutionResult<T>.Failed(ex);
             }
             catch (ValidationException ex) when (LogError(logger, ex))
             {
-                return ExceptionToResult<T>(ex);
+                return ExecutionResult<T>.Failed(ex);
             }
             catch (UnauthorizedAccessException ex) when (LogError(logger, ex))
             {
-                return ExceptionToResult<T>(ex);
+                return ExecutionResult<T>.Failed(ex);
             }
         }
 
@@ -98,7 +95,7 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
     {
         public static Task ProblemAsync(this ActionContext context, BadRequestObjectResult result)
         {
-            if (context.HttpContext.Features.Get<IHttpResponseFeature>().HasStarted)
+            if (context.HttpContext.Features.Get<IHttpResponseFeature>()?.HasStarted == true)
             {
                 // If already started writing response, do not rewrite
                 // as this will throw an InvalidOperationException.

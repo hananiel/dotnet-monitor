@@ -1,9 +1,9 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Monitoring.TestCommon;
 using Microsoft.Diagnostics.Monitoring.TestCommon.Runners;
+using Microsoft.Diagnostics.Monitoring.WebApi;
 using Microsoft.Diagnostics.Tools.Monitor;
 using System;
 using System.Collections.Concurrent;
@@ -192,35 +192,6 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.Runners
             }
         }
 
-        private struct CollectionRuleKey : IEquatable<CollectionRuleKey>
-        {
-            private readonly int _eventId;
-            private readonly string _ruleName;
-
-            public CollectionRuleKey(int eventId, string ruleName)
-            {
-                _eventId = eventId;
-                _ruleName = ruleName;
-            }
-
-            public bool Equals(CollectionRuleKey other)
-            {
-                return _eventId == other._eventId &&
-                    string.Equals(_ruleName, other._ruleName, StringComparison.Ordinal);
-            }
-
-            public override bool Equals(object obj)
-            {
-                return obj is CollectionRuleKey key && Equals(key);
-            }
-
-            public override int GetHashCode()
-            {
-                HashCode code = new();
-                code.Add(_eventId);
-                code.Add(_ruleName);
-                return code.ToHashCode();
-            }
-        }
+        private record struct CollectionRuleKey(int EventId, string RuleName);
     }
 }

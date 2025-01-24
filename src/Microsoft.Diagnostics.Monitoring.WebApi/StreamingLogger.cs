@@ -1,6 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Monitoring.EventPipe;
 using Microsoft.Diagnostics.Monitoring.Options;
@@ -8,7 +7,6 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Text.Json;
 
 namespace Microsoft.Diagnostics.Monitoring.WebApi
@@ -41,6 +39,13 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
 
     public sealed class StreamingLogger : ILogger
     {
+        private sealed class EmptyScope : IDisposable
+        {
+            public void Dispose()
+            {
+            }
+        }
+
         private readonly ScopeState _scopes = new ScopeState();
         private readonly Stream _outputStream;
         private readonly string _categoryName;
@@ -70,18 +75,18 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
             _logLevel = logLevel;
         }
 
-        public IDisposable BeginScope<TState>(TState state)
+        IDisposable ILogger.BeginScope<TState>(TState state)
         {
             if (state is LogObject logObject)
             {
                 return _scopes.Push(logObject);
             }
-            return null;
+            return new EmptyScope();
         }
 
         public bool IsEnabled(LogLevel logLevel) => (_logLevel == null) ? true : logLevel <= _logLevel.Value;
 
-        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
         {
             if (_logFormat == LogFormat.NewlineDelimitedJson)
             {
@@ -97,7 +102,7 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
             }
         }
 
-        private void LogJson<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter, LogFormat jsonFormat = LogFormat.NewlineDelimitedJson)
+        private void LogJson<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter, LogFormat jsonFormat = LogFormat.NewlineDelimitedJson)
         {
             Stream outputStream = _outputStream;
 
@@ -163,7 +168,7 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
             outputStream.Flush();
         }
 
-        private void LogText<TState>(LogLevel logLevel, EventId eventId, TState state, Exception exception, Func<TState, Exception, string> formatter)
+        private void LogText<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
         {
             Stream outputStream = _outputStream;
 
@@ -175,7 +180,7 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
             // Note: This deviates slightly from the simple console format in that the event name
             // is also logged as a suffix on the first line whereas the simple console format does
             // not log the event name at all.
-            
+
             // Timestamp Level: Category[EventId][EventName]
             //       => Scope1Name1:Scope1Value1, Scope1Name2:Scope1Value2 => Scope2Name1:Scope2Value2
             //       Message
@@ -209,7 +214,7 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
                 foreach (IReadOnlyList<KeyValuePair<string, object>> scope in _scopes)
                 {
                     // The first scope should not have extra padding before the delimiter since
-                    // it was aleady padded by the padding added for every line.
+                    // it was already padded by the padding added for every line.
                     if (firstScope)
                     {
                         firstScope = false;

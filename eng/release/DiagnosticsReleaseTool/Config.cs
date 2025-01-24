@@ -1,5 +1,6 @@
-using Azure.Storage.Blobs.Models;
-using System;
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+
 using System.IO;
 
 namespace DiagnosticsReleaseTool.Impl
@@ -11,31 +12,31 @@ namespace DiagnosticsReleaseTool.Impl
         public DirectoryInfo DropPath { get; }
         public DirectoryInfo StagingDirectory { get; }
         public string ReleaseName { get; }
+        public string BuildVersion { get; }
         public string AccountName { get; }
-        public string AccountKey { get; }
+        public string ClientId { get; }
         public string ContainerName { get; }
-        public int SasValidDays { get; }
 
         public Config(
-            FileInfo toolManifest, 
+            FileInfo toolManifest,
             bool verifyToolManifest,
             DirectoryInfo inputDropPath,
             DirectoryInfo stagingDirectory,
             string releaseName,
+            string buildVersion,
             string accountName,
-            string accountKey,
-            string containerName,
-            int sasValidDays)
+            string clientId,
+            string containerName)
         {
             ToolManifest = toolManifest;
             ShouldVerifyManifest = verifyToolManifest;
             DropPath = inputDropPath;
             StagingDirectory = stagingDirectory;
             ReleaseName = releaseName;
+            BuildVersion = buildVersion;
             AccountName = accountName;
-            AccountKey = accountKey;
+            ClientId = clientId;
             ContainerName = containerName;
-            SasValidDays = sasValidDays;
         }
     }
 }

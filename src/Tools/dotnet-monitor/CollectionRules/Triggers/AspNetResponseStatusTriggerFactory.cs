@@ -1,6 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Monitoring.EventPipe;
 using Microsoft.Diagnostics.Monitoring.EventPipe.Triggers;
@@ -45,7 +44,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Triggers
 
             var aspnetTriggerSourceConfiguration = new AspNetTriggerSourceConfiguration();
 
-            return _eventPipeTriggerFactory.Create(endpointInfo, aspnetTriggerSourceConfiguration, _traceEventTriggerFactory, settings, callback);
+            return EventPipeTriggerFactory.Create(endpointInfo, aspnetTriggerSourceConfiguration, _traceEventTriggerFactory, settings, callback);
         }
 
         private static StatusCodeRange ParseRange(string range)

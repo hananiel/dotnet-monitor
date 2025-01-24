@@ -1,6 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.FileFormats;
 using Microsoft.FileFormats.ELF;
@@ -16,7 +15,7 @@ namespace Microsoft.Diagnostics.Monitoring.TestCommon
 {
     public static class DumpTestUtilities
     {
-        public const string EnableElfDumpOnMacOS = "COMPlus_DbgEnableElfDumpOnMacOS";
+        public const string EnableElfDumpOnMacOS = "DOTNET_DbgEnableElfDumpOnMacOS";
 
         public static async Task ValidateDump(bool expectElfDump, Stream dumpStream)
         {
@@ -84,14 +83,15 @@ namespace Microsoft.Diagnostics.Monitoring.TestCommon
 
         public class MinidumpHeader : TStruct
         {
-            public uint Signature = 0;
-            public uint Version = 0;
-            public uint NumberOfStreams = 0;
-            public uint StreamDirectoryRva = 0;
-            public uint CheckSum = 0;
-            public uint TimeDateStamp = 0;
-            public ulong Flags = 0;
+            public uint Signature;
+            public uint Version;
+            public uint NumberOfStreams;
+            public uint StreamDirectoryRva;
+            public uint CheckSum;
+            public uint TimeDateStamp;
+            public ulong Flags;
 
+            // spell-checker:disable-next
             // 50,4D,44,4D = PMDM
             public ValidationRule IsSignatureValid => new ValidationRule("Invalid Signature", () => Signature == 0x504D444DU);
         }

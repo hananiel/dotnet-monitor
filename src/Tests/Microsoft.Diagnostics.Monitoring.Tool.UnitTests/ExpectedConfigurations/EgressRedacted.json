@@ -1,0 +1,12 @@
+{
+  "Properties": {
+    "MonitorBlobAccountKey": ":REDACTED:"
+  },
+  "FileSystem": {
+    "artifacts": {
+      "DirectoryPath": " /artifacts",
+      "IntermediateDirectoryPath": ":NOT PRESENT:",
+      "CopyBufferSize": ":NOT PRESENT:"
+    }
+  }
+}

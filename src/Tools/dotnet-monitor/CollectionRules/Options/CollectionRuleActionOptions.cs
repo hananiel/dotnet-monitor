@@ -1,6 +1,7 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
+
+#nullable enable
 
 using Microsoft.Diagnostics.Monitoring.WebApi;
 using System.ComponentModel;
@@ -18,18 +19,18 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Options
         [Display(
             ResourceType = typeof(OptionsDisplayStrings),
             Description = nameof(OptionsDisplayStrings.DisplayAttributeDescription_CollectionRuleActionOptions_Name))]
-        public string Name { get; set; }
+        public string? Name { get; set; }
 
         [Display(
             ResourceType = typeof(OptionsDisplayStrings),
             Description = nameof(OptionsDisplayStrings.DisplayAttributeDescription_CollectionRuleActionOptions_Type))]
         [Required]
-        public string Type { get; set; }
+        public string Type { get; set; } = string.Empty;
 
         [Display(
             ResourceType = typeof(OptionsDisplayStrings),
             Description = nameof(OptionsDisplayStrings.DisplayAttributeDescription_CollectionRuleActionOptions_Settings))]
-        public object Settings { get; internal set; }
+        public object? Settings { get; internal set; }
 
         [Display(
             ResourceType = typeof(OptionsDisplayStrings),

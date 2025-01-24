@@ -1,11 +1,13 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information
 
+using Microsoft.Diagnostics.Monitoring.WebApi;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -16,8 +18,16 @@ namespace Microsoft.Diagnostics.Monitoring.TestCommon.Runners
     /// <summary>
     /// Runner for running dotnet processes.
     /// </summary>
+    [DebuggerDisplay(@"\{DotNetRunner:{StateForDebuggerDisplay,nq}\}")]
     public sealed class DotNetRunner : IDisposable
     {
+        private string StateForDebuggerDisplay =>
+            !HasStarted ? "Not started" :
+            HasExited ? $"Exited with code: {ExitCode}" :
+            FormattableString.Invariant($"ProcessId={ProcessId}");
+
+        private const string TestProcessCleanupStartupHookAssemblyName = "Microsoft.Diagnostics.Monitoring.TestProcessCleanupStartupHook";
+
         // Event handler for the Process.Exited event
         private readonly EventHandler _exitedHandler;
 
@@ -26,6 +36,13 @@ namespace Microsoft.Diagnostics.Monitoring.TestCommon.Runners
 
         // The process object of the started process
         private readonly Process _process;
+
+        private long _disposedState;
+
+        /// <summary>
+        /// The architecture of the dotnet host.
+        /// </summary>
+        public Architecture? Architecture { get; set; }
 
         /// <summary>
         /// The arguments to the entrypoint method.
@@ -38,14 +55,14 @@ namespace Microsoft.Diagnostics.Monitoring.TestCommon.Runners
         public string EntrypointAssemblyPath { get; set; }
 
         /// <summary>
-        /// Retrives the starting environment block of the process.
+        /// Retrieves the starting environment block of the process.
         /// </summary>
         public IDictionary<string, string> Environment => _process.StartInfo.Environment;
 
         /// <summary>
         /// Gets a <see cref="bool"/> indicating if <see cref="StartAsync(CancellationToken)"/> has been called and the process has been started.
         /// </summary>
-        public bool HasStarted { get; private set; } = false;
+        public bool HasStarted { get; private set; }
 
         /// <summary>
         /// Retrieves the exit code of the process.
@@ -56,11 +73,6 @@ namespace Microsoft.Diagnostics.Monitoring.TestCommon.Runners
         /// Gets a task that completes with the process exit code when it exits.
         /// </summary>
         public Task<int> ExitedTask => _exitedSource.Task;
-
-        /// <summary>
-        /// The framework reference of the app to run.
-        /// </summary>
-        public DotNetFrameworkReference FrameworkReference { get; set; } = DotNetFrameworkReference.Microsoft_NetCore_App;
 
         /// <summary>
         /// Determines if the process has exited.
@@ -88,19 +100,28 @@ namespace Microsoft.Diagnostics.Monitoring.TestCommon.Runners
         public StreamReader StandardOutput => _process.StandardOutput;
 
         /// <summary>
-        /// Get or set the target framework on which the application should run.
-        /// </summary>
-        public TargetFrameworkMoniker TargetFramework { get; set; } = TargetFrameworkMoniker.Current;
-
-        /// <summary>
         /// Determines if <see cref="StartAsync(CancellationToken)" /> should wait for the diagnostic pipe to be available.
         /// </summary>
         public bool WaitForDiagnosticPipe { get; set; }
 
+        /// <summary>
+        /// Determines if the spawned process should be stopped when the currently executing process exits.
+        /// </summary>
+        public bool StopOnParentExit { get; set; } = true;
+
+        // This startup hook assembly is a dependency of the TestCommon assembly, so it is copied to the same
+        // output directory that TestCommon is copied. Do not specify TFM so it uses the one that is in the
+        // same directory; this is interpreted as "relative to the currently executing assembly,
+        // find the startup hook assembly."
+        private static string TestProcessCleanupStartupHookPath =>
+            AssemblyHelper.GetAssemblyArtifactBinPath(
+                Assembly.GetExecutingAssembly(),
+                TestProcessCleanupStartupHookAssemblyName
+                );
+
         public DotNetRunner()
         {
             _process = new Process();
-            _process.StartInfo.FileName = DotNetHost.HostExePath;
             _process.StartInfo.UseShellExecute = false;
             _process.StartInfo.RedirectStandardError = true;
             _process.StartInfo.RedirectStandardInput = true;
@@ -115,7 +136,12 @@ namespace Microsoft.Diagnostics.Monitoring.TestCommon.Runners
 
         public void Dispose()
         {
-            ForceClose();
+            if (!DisposableHelper.CanDispose(ref _disposedState))
+            {
+                return;
+            }
+
+            Stop();
 
             _process.Dispose();
         }
@@ -125,39 +151,45 @@ namespace Microsoft.Diagnostics.Monitoring.TestCommon.Runners
         /// </summary>
         public async Task StartAsync(CancellationToken token)
         {
-            string frameworkVersion = null;
-            switch (FrameworkReference)
-            {
-                case DotNetFrameworkReference.Microsoft_AspNetCore_App:
-                    // Starting in .NET 6, the .NET SDK is emitting two framework references
-                    // into the .runtimeconfig.json file. This is preventing the --fx-version
-                    // parameter from having the correct effect of using the exact framework version
-                    // that we want. Disabling this forced version usage for ASP.NET 6+ applications
-                    // until it can be resolved.
-                    if (!TargetFramework.IsEffectively(TargetFrameworkMoniker.Net60))
-                    {
-                        frameworkVersion = TargetFramework.GetAspNetCoreFrameworkVersionString();
-                    }
-                    break;
-                case DotNetFrameworkReference.Microsoft_NetCore_App:
-                    frameworkVersion = TargetFramework.GetNetCoreAppFrameworkVersionString();
-                    break;
-                default:
-                    throw new InvalidOperationException($"Unsupported framework reference: {FrameworkReference}");
-            }
-
             StringBuilder argsBuilder = new();
-            if (!string.IsNullOrEmpty(frameworkVersion))
+            if (TestDotNetHost.HasHostFullPath)
             {
-                argsBuilder.Append("--fx-version ");
-                argsBuilder.Append(frameworkVersion);
-                argsBuilder.Append(" ");
+                argsBuilder.Append("exec --runtimeconfig \"");
+                argsBuilder.Append(Path.ChangeExtension(EntrypointAssemblyPath, ".runtimeconfig.test.json"));
+                argsBuilder.Append("\" ");
             }
-            argsBuilder.Append("\"");
+            argsBuilder.Append('\"');
             argsBuilder.Append(EntrypointAssemblyPath);
             argsBuilder.Append("\" ");
             argsBuilder.Append(Arguments);
 
+            if (StopOnParentExit)
+            {
+                int pid;
+#if NET5_0_OR_GREATER
+                pid = System.Environment.ProcessId;
+#else
+                using (Process process = Process.GetCurrentProcess())
+                {
+                    pid = process.Id;
+                }
+#endif
+                Environment.Add(TestProcessCleanupIdentifiers.EnvironmentVariables.ParentPid, pid.ToString(CultureInfo.InvariantCulture));
+
+                if (Environment.TryGetValue(ToolIdentifiers.EnvironmentVariables.StartupHooks, out string startupHooks) &&
+                    !string.IsNullOrEmpty(startupHooks))
+                {
+                    startupHooks += Path.PathSeparator + TestProcessCleanupStartupHookPath;
+                }
+                else
+                {
+                    startupHooks = TestProcessCleanupStartupHookPath;
+                }
+
+                Environment.Add(ToolIdentifiers.EnvironmentVariables.StartupHooks, startupHooks);
+            }
+
+            _process.StartInfo.FileName = TestDotNetHost.GetPath(Architecture);
             _process.StartInfo.Arguments = argsBuilder.ToString();
 
             if (!_process.Start())
@@ -182,10 +214,20 @@ namespace Microsoft.Diagnostics.Monitoring.TestCommon.Runners
                             break;
                         }
 
-                        await Task.Delay(TimeSpan.FromMilliseconds(100));
+                        await Task.Delay(TimeSpan.FromMilliseconds(100), token);
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Forces the process to stop and waits for it to exit.
+        /// </summary>
+        public async Task StopAsync(CancellationToken token)
+        {
+            Stop();
+
+            await WaitForExitAsync(token);
         }
 
         /// <summary>
@@ -200,9 +242,9 @@ namespace Microsoft.Diagnostics.Monitoring.TestCommon.Runners
         }
 
         /// <summary>
-        /// Forces the process to exit.
+        /// Forces the process to stop
         /// </summary>
-        public void ForceClose()
+        private void Stop()
         {
             if (HasStarted && !_process.HasExited)
             {

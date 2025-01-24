@@ -1,6 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using System.Diagnostics;
 
@@ -8,7 +7,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor
 {
     internal static class ActivityExtensions
     {
-        public static string GetSpanId(this Activity activity)
+        public static string? GetSpanId(this Activity activity)
         {
             switch (activity.IdFormat)
             {
@@ -20,7 +19,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor
             return string.Empty;
         }
 
-        public static string GetParentId(this Activity activity)
+        public static string? GetParentId(this Activity activity)
         {
             switch (activity.IdFormat)
             {
@@ -32,7 +31,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor
             return string.Empty;
         }
 
-        public static string GetTraceId(this Activity activity)
+        public static string? GetTraceId(this Activity activity)
         {
             switch (activity.IdFormat)
             {

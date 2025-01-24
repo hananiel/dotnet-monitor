@@ -1,17 +1,35 @@
 <Project>
+  <!-- Import references updated by Dependabot. This file is for package references updated manually or by Maestro. -->
+  <Import Project="dependabot/Versions.props" />
   <PropertyGroup Label="Versioning">
     <RepositoryUrl>https://github.com/dotnet/dotnet-monitor</RepositoryUrl>
-    <VersionPrefix>7.0.0</VersionPrefix>
+    <VersionPrefix>8.1.0</VersionPrefix>
     <PreReleaseVersionLabel>alpha</PreReleaseVersionLabel>
     <PreReleaseVersionIteration>1</PreReleaseVersionIteration>
+    <!-- Disable final version kind until merged into release branch. -->
     <DotNetUseShippingVersions>true</DotNetUseShippingVersions>
     <!--
       Build quality notion for blob group naming, similar to aka.ms channel build quality in Arcade:
       - 'daily': sets the blob group release name to 'daily' so a release type does not have to be assigned.
-      - 'prerelease': allows the blob group release name to use prerelease version information.
-      - 'release': sets the blob group release name to 'release'.
+      - 'release': sets the blob group release name to 'release'. Can be used for prereleases and full releases.
     -->
     <BlobGroupBuildQuality>daily</BlobGroupBuildQuality>
+    <!--
+      This should be set to true for official releases.
+    -->
+    <UseMicrosoftDiagnosticsMonitoringShippedVersion>false</UseMicrosoftDiagnosticsMonitoringShippedVersion>
+  </PropertyGroup>
+  <PropertyGroup Label="Testing">
+    <XUnitCoreSettingsFile>$(MSBuildThisFileDirectory)xunit.runner.json</XUnitCoreSettingsFile>
+  </PropertyGroup>
+  <Import Project="$(MSBuildThisFileDirectory)Common.props" />
+  <PropertyGroup Label="TargetFrameworks">
+    <!-- The TFMs of the dotnet-monitor tool.  -->
+    <ToolTargetFrameworks>$(LatestTargetFramework)</ToolTargetFrameworks>
+    <!-- The TFMs of that the dotnet-monitor tool supports diagnosing. -->
+    <TestTargetFrameworks>net6.0;net7.0;$(LatestTargetFramework)</TestTargetFrameworks>
+    <!-- The TFM for generating schema.json and OpenAPI docs. -->
+    <SchemaTargetFramework>net8.0</SchemaTargetFramework>
   </PropertyGroup>
   <PropertyGroup Label="Arcade">
     <UsingToolXliff>false</UsingToolXliff>
@@ -30,55 +48,73 @@
   -->
   <PropertyGroup Label="Automated">
     <!-- dotnet/arcade references -->
-    <MicrosoftDotNetXUnitExtensionsVersion>7.0.0-beta.22056.6</MicrosoftDotNetXUnitExtensionsVersion>
+    <MicrosoftDotNetBuildTasksArchivesVersion>8.0.0-beta.25066.6</MicrosoftDotNetBuildTasksArchivesVersion>
+    <MicrosoftDotNetCodeAnalysisVersion>8.0.0-beta.25066.6</MicrosoftDotNetCodeAnalysisVersion>
+    <MicrosoftDotNetXUnitExtensionsVersion>8.0.0-beta.25066.6</MicrosoftDotNetXUnitExtensionsVersion>
     <!-- dotnet/aspnetcore references -->
-    <MicrosoftAspNetCoreAppRuntimewinx64Version>7.0.0-alpha.1.22057.17</MicrosoftAspNetCoreAppRuntimewinx64Version>
-    <VSRedistCommonAspNetCoreSharedFrameworkx6470Version>7.0.0-alpha.1.22057.17</VSRedistCommonAspNetCoreSharedFrameworkx6470Version>
+    <MicrosoftAspNetCoreAppRuntimewinx64Version>8.0.1</MicrosoftAspNetCoreAppRuntimewinx64Version>
+    <VSRedistCommonAspNetCoreSharedFrameworkx6480Version>8.0.1-servicing.23580.8</VSRedistCommonAspNetCoreSharedFrameworkx6480Version>
+    <!-- dotnet/command-line-api references -->
+    <SystemCommandLineVersion>2.0.0-beta4.25072.1</SystemCommandLineVersion>
     <!-- dotnet/diagnostics references -->
-    <MicrosoftDiagnosticsMonitoringVersion>5.0.0-preview.22060.1</MicrosoftDiagnosticsMonitoringVersion>
-    <MicrosoftDiagnosticsMonitoringEventPipeVersion>5.0.0-preview.22060.1</MicrosoftDiagnosticsMonitoringEventPipeVersion>
+    <MicrosoftDiagnosticsMonitoringVersion>9.0.0-preview.25073.1</MicrosoftDiagnosticsMonitoringVersion>
+    <MicrosoftDiagnosticsMonitoringEventPipeVersion>9.0.0-preview.25073.1</MicrosoftDiagnosticsMonitoringEventPipeVersion>
+    <!-- dotnet/installer references -->
+    <MicrosoftDotnetSdkInternalVersion>8.0.103-servicing.24114.15</MicrosoftDotnetSdkInternalVersion>
+    <!-- dotnet/roslyn-analyzers -->
+    <MicrosoftCodeAnalysisNetAnalyzersVersion>8.0.0-preview.23525.2</MicrosoftCodeAnalysisNetAnalyzersVersion>
     <!-- dotnet/runtime references -->
-    <MicrosoftNETCoreAppRuntimewinx64Version>7.0.0-alpha.1.22060.15</MicrosoftNETCoreAppRuntimewinx64Version>
-    <VSRedistCommonNetCoreSharedFrameworkx6470Version>7.0.0-alpha.1.22060.15</VSRedistCommonNetCoreSharedFrameworkx6470Version>
+    <MicrosoftNETCoreAppRuntimewinx64Version>8.0.1</MicrosoftNETCoreAppRuntimewinx64Version>
+    <VSRedistCommonNetCoreSharedFrameworkx6480Version>8.0.1-servicing.23580.1</VSRedistCommonNetCoreSharedFrameworkx6480Version>
     <!-- dotnet/symstore references -->
-    <MicrosoftFileFormatsVersion>1.0.306101</MicrosoftFileFormatsVersion>
+    <MicrosoftFileFormatsVersion>1.0.607301</MicrosoftFileFormatsVersion>
   </PropertyGroup>
   <PropertyGroup Label="Runtime Versions">
-    <MicrosoftNETCoreApp31Version>3.1.22</MicrosoftNETCoreApp31Version>
     <MicrosoftAspNetCoreApp31Version>$(MicrosoftNETCoreApp31Version)</MicrosoftAspNetCoreApp31Version>
-    <MicrosoftNETCoreApp50Version>5.0.13</MicrosoftNETCoreApp50Version>
+    <MicrosoftNETCoreApp50Version>5.0.17</MicrosoftNETCoreApp50Version>
     <MicrosoftAspNetCoreApp50Version>$(MicrosoftNETCoreApp50Version)</MicrosoftAspNetCoreApp50Version>
-    <MicrosoftNETCoreApp60Version>6.0.1</MicrosoftNETCoreApp60Version>
-    <MicrosoftAspNetCoreApp60Version>6.0.1</MicrosoftAspNetCoreApp60Version>
-    <MicrosoftNETCoreApp70Version>$(MicrosoftNETCoreAppRuntimewinx64Version)</MicrosoftNETCoreApp70Version>
-    <MicrosoftAspNetCoreApp70Version>$(MicrosoftAspNetCoreAppRuntimewinx64Version)</MicrosoftAspNetCoreApp70Version>
-  </PropertyGroup>
-  <PropertyGroup Label="Manual">
-    <AzureStorageBlobsVersion>12.6.0</AzureStorageBlobsVersion>
-    <MicrosoftAspNetCoreAuthenticationJwtBearerVersion>3.1.17</MicrosoftAspNetCoreAuthenticationJwtBearerVersion>
-    <MicrosoftAspNetCoreAuthenticationNegotiateVersion>3.1.10</MicrosoftAspNetCoreAuthenticationNegotiateVersion>
-    <MicrosoftExtensionsConfigurationAbstractionsVersion>6.0.0</MicrosoftExtensionsConfigurationAbstractionsVersion>
-    <MicrosoftExtensionsConfigurationKeyPerFileVersion>6.0.0</MicrosoftExtensionsConfigurationKeyPerFileVersion>
-    <MicrosoftExtensionsLoggingAbstractionsVersion>6.0.0</MicrosoftExtensionsLoggingAbstractionsVersion>
-    <MicrosoftExtensionsLoggingConsoleVersion>6.0.0</MicrosoftExtensionsLoggingConsoleVersion>
-    <MicrosoftExtensionsLoggingEventSourceVersion>6.0.0</MicrosoftExtensionsLoggingEventSourceVersion>
-    <MicrosoftIdentityModelTokensVersion>6.11.1</MicrosoftIdentityModelTokensVersion>
-    <MicrosoftOpenApiReadersVersion>1.2.3</MicrosoftOpenApiReadersVersion>
-    <SystemCommandLineVersion>2.0.0-beta1.20468.1</SystemCommandLineVersion>
-    <SystemIdentityModelTokensJwtVersion>6.11.1</SystemIdentityModelTokensJwtVersion>
-    <SystemPrivateUriVersion>4.3.2</SystemPrivateUriVersion>
-    <SystemSecurityPrincipalWindowsVersion>5.0.0</SystemSecurityPrincipalWindowsVersion>
-    <SystemTextJsonVersion>6.0.0</SystemTextJsonVersion>
-    <!-- Third-party references -->
-    <NJsonSchemaVersion>10.3.11</NJsonSchemaVersion>
-    <SwashbuckleAspNetCoreSwaggerGenVersion>5.6.3</SwashbuckleAspNetCoreSwaggerGenVersion>
-    <XunitAssertVersion>2.4.1</XunitAssertVersion>
+    <MicrosoftAspNetCoreApp60Version>$(MicrosoftNETCoreApp60Version)</MicrosoftAspNetCoreApp60Version>
+    <MicrosoftAspNetCoreApp70Version>$(MicrosoftNETCoreApp70Version)</MicrosoftAspNetCoreApp70Version>
+    <MicrosoftAspNetCoreApp80Version>$(MicrosoftNETCoreApp80Version)</MicrosoftAspNetCoreApp80Version>
   </PropertyGroup>
   <PropertyGroup Label="Dev Workflow">
     <!-- These versions are not used directly. For Dev workflows, nuget requires these to properly follow
          project references for command line builds. They should match the values in the diagnostics repo. -->
-    <MicrosoftBclAsyncInterfacesVersion>1.1.0</MicrosoftBclAsyncInterfacesVersion>
-    <MicrosoftDiagnosticsTracingTraceEventVersion>2.0.64</MicrosoftDiagnosticsTracingTraceEventVersion>
-    <MicrosoftExtensionsLoggingVersion>2.1.1</MicrosoftExtensionsLoggingVersion>
+    <MicrosoftBclAsyncInterfacesVersion>6.0.0</MicrosoftBclAsyncInterfacesVersion>
+    <MicrosoftDiagnosticsTracingTraceEventVersion>3.0.7</MicrosoftDiagnosticsTracingTraceEventVersion>
+  </PropertyGroup>
+  <PropertyGroup Label=".NET 6 Dependent" Condition=" '$(TargetFramework)' == 'net6.0' ">
+    <MicrosoftAspNetCoreAuthenticationJwtBearerVersion>$(MicrosoftAspNetCoreApp60Version)</MicrosoftAspNetCoreAuthenticationJwtBearerVersion>
+    <MicrosoftAspNetCoreAuthenticationNegotiateVersion>$(MicrosoftAspNetCoreApp60Version)</MicrosoftAspNetCoreAuthenticationNegotiateVersion>
+    <MicrosoftExtensionsConfigurationAbstractionsVersion>$(MicrosoftExtensionsConfigurationAbstractions60Version)</MicrosoftExtensionsConfigurationAbstractionsVersion>
+    <MicrosoftExtensionsLoggingVersion>$(MicrosoftExtensionsLogging60Version)</MicrosoftExtensionsLoggingVersion>
+    <MicrosoftExtensionsLoggingAbstractionsVersion>$(MicrosoftExtensionsLoggingAbstractions60Version)</MicrosoftExtensionsLoggingAbstractionsVersion>
+    <MicrosoftExtensionsLoggingConsoleVersion>$(MicrosoftExtensionsLoggingConsole60Version)</MicrosoftExtensionsLoggingConsoleVersion>
+    <SystemTextJsonVersion>$(SystemTextJson80Version)</SystemTextJsonVersion>
+  </PropertyGroup>
+  <PropertyGroup Label=".NET 7 Dependent" Condition=" '$(TargetFramework)' == 'net7.0' ">
+    <MicrosoftAspNetCoreAuthenticationJwtBearerVersion>$(MicrosoftAspNetCoreApp70Version)</MicrosoftAspNetCoreAuthenticationJwtBearerVersion>
+    <MicrosoftExtensionsConfigurationAbstractionsVersion>$(MicrosoftExtensionsConfigurationAbstractions70Version)</MicrosoftExtensionsConfigurationAbstractionsVersion>
+    <MicrosoftExtensionsLoggingVersion>$(MicrosoftExtensionsLogging70Version)</MicrosoftExtensionsLoggingVersion>
+    <MicrosoftExtensionsLoggingAbstractionsVersion>$(MicrosoftExtensionsLoggingAbstractions70Version)</MicrosoftExtensionsLoggingAbstractionsVersion>
+    <MicrosoftExtensionsLoggingConsoleVersion>$(MicrosoftExtensionsLoggingConsole70Version)</MicrosoftExtensionsLoggingConsoleVersion>
+    <SystemTextJsonVersion>$(SystemTextJson80Version)</SystemTextJsonVersion>
+  </PropertyGroup>
+  <PropertyGroup Label=".NET 8 Dependent" Condition=" '$(TargetFramework)' == 'net8.0' ">
+    <MicrosoftAspNetCoreAuthenticationJwtBearerVersion>$(MicrosoftAspNetCoreApp80Version)</MicrosoftAspNetCoreAuthenticationJwtBearerVersion>
+    <MicrosoftAspNetCoreAuthenticationNegotiateVersion>$(MicrosoftAspNetCoreApp80Version)</MicrosoftAspNetCoreAuthenticationNegotiateVersion>
+    <MicrosoftExtensionsConfigurationAbstractionsVersion>$(MicrosoftExtensionsConfigurationAbstractions80Version)</MicrosoftExtensionsConfigurationAbstractionsVersion>
+    <MicrosoftExtensionsLoggingVersion>$(MicrosoftExtensionsLogging80Version)</MicrosoftExtensionsLoggingVersion>
+    <MicrosoftExtensionsLoggingAbstractionsVersion>$(MicrosoftExtensionsLoggingAbstractions80Version)</MicrosoftExtensionsLoggingAbstractionsVersion>
+    <MicrosoftExtensionsLoggingConsoleVersion>$(MicrosoftExtensionsLoggingConsole80Version)</MicrosoftExtensionsLoggingConsoleVersion>
+    <SystemTextJsonVersion>$(SystemTextJson80Version)</SystemTextJsonVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(UseMicrosoftDiagnosticsMonitoringShippedVersion)' == 'true'">
+    <MicrosoftDiagnosticsMonitoringLibraryVersion>$(MicrosoftDiagnosticsMonitoringShippedVersion)</MicrosoftDiagnosticsMonitoringLibraryVersion>
+    <MicrosoftDiagnosticsMonitoringEventPipeLibraryVersion>$(MicrosoftDiagnosticsMonitoringShippedVersion)</MicrosoftDiagnosticsMonitoringEventPipeLibraryVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(UseMicrosoftDiagnosticsMonitoringShippedVersion)' != 'true'">
+    <MicrosoftDiagnosticsMonitoringLibraryVersion>$(MicrosoftDiagnosticsMonitoringVersion)</MicrosoftDiagnosticsMonitoringLibraryVersion>
+    <MicrosoftDiagnosticsMonitoringEventPipeLibraryVersion>$(MicrosoftDiagnosticsMonitoringEventPipeVersion)</MicrosoftDiagnosticsMonitoringEventPipeLibraryVersion>
   </PropertyGroup>
 </Project>

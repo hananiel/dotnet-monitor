@@ -1,0 +1,12 @@
+{
+  "Properties": {
+    "MonitorBlobAccountKey": ":REDACTED:" /*JsonConfigurationProvider for 'UserSpecifiedFile.json' (Optional)*/
+  },
+  "FileSystem": {
+    "artifacts": {
+      "DirectoryPath": " /artifacts" /*JsonConfigurationProvider for 'UserSpecifiedFile.json' (Optional)*/,
+      "IntermediateDirectoryPath": ":NOT PRESENT:",
+      "CopyBufferSize": ":NOT PRESENT:"
+    }
+  }
+}

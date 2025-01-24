@@ -1,11 +1,9 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.Extensions.Options;
 using System;
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -38,7 +36,8 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
                 throw new ArgumentNullException(nameof(endpointInfo));
             }
 
-            string dumpTempFolder = _storageOptions.CurrentValue.DumpTempFolder;
+            // Guaranteed to not be null by StoragePostConfigureOptions.PostConfigure.
+            string dumpTempFolder = _storageOptions.CurrentValue.DumpTempFolder!;
 
             // Ensure folder exists before issue command.
             if (!Directory.Exists(dumpTempFolder))
@@ -49,7 +48,7 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
             string dumpFilePath = Path.Combine(dumpTempFolder, FormattableString.Invariant($"{Guid.NewGuid()}_{endpointInfo.ProcessId}"));
             DumpType dumpType = MapDumpType(mode);
 
-            IDisposable operationRegistration = null;
+            IDisposable? operationRegistration = null;
             // Only track operation status for endpoints from a listening server because:
             // 1) Each process only ever has a single instance of an IEndpointInfo
             // 2) Only the listening server will query the dump service for the operation status of an endpoint.
@@ -95,7 +94,7 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
         private sealed class AutoDeleteFileStream : FileStream
         {
             public AutoDeleteFileStream(string path) : base(path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite | FileShare.Delete,
-                bufferSize: 4096, FileOptions.DeleteOnClose)
+                StreamDefaults.BufferSize, FileOptions.DeleteOnClose)
             {
             }
 

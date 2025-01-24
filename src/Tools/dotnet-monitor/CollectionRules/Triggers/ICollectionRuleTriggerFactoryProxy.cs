@@ -1,6 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Monitoring.WebApi;
 using System;
@@ -22,6 +21,6 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Triggers
         /// Executes the underlying factory with the specified parameters, verifying
         /// that the passed options are of the correct type.
         /// </summary>
-        ICollectionRuleTrigger Create(IEndpointInfo endpointInfo, Action callback, object options);
+        ICollectionRuleTrigger Create(IEndpointInfo endpointInfo, Action callback, object? options);
     }
 }

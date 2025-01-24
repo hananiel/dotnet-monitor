@@ -1,6 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Monitoring.WebApi;
 using Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Exceptions;
@@ -8,6 +7,7 @@ using Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Options;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -58,7 +58,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Actions
                 {
                     KeyValueLogScope actionScope = new();
                     actionScope.AddCollectionRuleAction(actionOption.Type, actionIndex);
-                    using IDisposable actionScopeRegistration = _logger.BeginScope(actionScope);
+                    using IDisposable? actionScopeRegistration = _logger.BeginScope(actionScope);
 
                     _logger.CollectionRuleActionStarted(context.Name, actionOption.Type);
 
@@ -84,15 +84,26 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Actions
 
                         if (!_actionOperations.TryCreateFactory(actionOption.Type, out factory))
                         {
-                            throw new InvalidOperationException(Strings.ErrorMessage_CouldNotMapToAction);
+                            throw new InvalidOperationException(string.Format(
+                                CultureInfo.InvariantCulture,
+                                Strings.ErrorMessage_CouldNotMapToAction,
+                                actionOption.Type
+                                ));
                         }
 
-                        object newSettings = dependencyAnalyzer.SubstituteOptionValues(actionResults, actionIndex, actionOption.Settings);
-                        ICollectionRuleAction action = factory.Create(context.EndpointInfo, newSettings);
+                        object? newSettings = dependencyAnalyzer.SubstituteOptionValues(actionResults, actionIndex, actionOption.Settings);
+                        ICollectionRuleAction? action = factory.Create(context.ProcessInfo, newSettings);
 
                         try
                         {
-                            await action.StartAsync(cancellationToken);
+                            CollectionRuleMetadata metadata = new()
+                            {
+                                CollectionRuleName = context.Name,
+                                ActionListIndex = actionIndex,
+                                ActionName = actionOption.Name
+                            };
+
+                            await action.StartAsync(metadata, cancellationToken);
 
                             // Check if the action completion should be awaited synchronously (in respect to
                             // starting the next action). If not, add a deferred entry so that it can be completed
@@ -147,7 +158,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Actions
         }
 
         private async Task WaitForCompletion(CollectionRuleContext context,
-            Action startCallback,
+            Action? startCallback,
             IDictionary<string, CollectionRuleActionResult> allResults,
             ICollectionRuleAction action,
             CollectionRuleActionOptions actionOption,
@@ -167,7 +178,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Actions
         }
 
         private async Task WaitForCompletion(CollectionRuleContext context,
-            Action startCallback,
+            Action? startCallback,
             IDictionary<string, CollectionRuleActionResult> allResults,
             ActionCompletionEntry entry,
             CancellationToken cancellationToken)

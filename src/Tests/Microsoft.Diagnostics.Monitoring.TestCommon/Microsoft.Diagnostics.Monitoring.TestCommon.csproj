@@ -1,32 +1,39 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netcoreapp3.1;net5.0;net6.0</TargetFrameworks>
+    <TargetFrameworks>$(TestTargetFrameworks)</TargetFrameworks>
     <DefineConstants>$(DefineConstants);UNITTEST</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
     <Compile Include="..\..\Microsoft.Diagnostics.Monitoring.WebApi\CancellationTokenSourceExtensions.cs" Link="CancellationTokenSourceExtensions.cs" />
     <Compile Include="..\..\Tools\dotnet-monitor\DisposableHelper.cs" Link="DisposableHelper.cs" />
-    <Compile Include="..\..\Tools\dotnet-monitor\TaskCompletionSourceExtensions.cs" Link="TaskCompletionSourceExtensions.cs" />
-    <Compile Include="..\..\Tools\dotnet-monitor\TaskExtensions.cs" Link="TaskExtensions.cs" />
+    <Compile Include="..\..\Tools\dotnet-monitor\Profiler\ProfilerIdentifiers.cs" Link="ProfilerIdentifiers.cs" />
+    <Compile Include="..\..\Tools\dotnet-monitor\ToolIdentifiers.cs" Link="ToolIdentifiers.cs" />
+    <Compile Include="..\..\Tools\dotnet-monitor\EnvironmentInformation.cs" Link="EnvironmentInformation.cs" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.DotNet.XUnitExtensions" Version="$(MicrosoftDotNetXUnitExtensionsVersion)" />
-    <PackageReference Include="Microsoft.FileFormats" Version="$(MicrosoftFileFormatsVersion)" />
-    <PackageReference Include="System.Security.Principal.Windows" Version="$(SystemSecurityPrincipalWindowsVersion)" />
-    <PackageReference Include="xunit.assert" Version="$(XunitAssertVersion)" />
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="$(MicrosoftExtensionsLoggingVersion)" />
+    <PackageReference Include="Microsoft.DotNet.XUnitExtensions" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+    <PackageReference Include="Microsoft.FileFormats" />
+    <PackageReference Include="System.Security.Principal.Windows" />
+    <PackageReference Include="xunit.assert" VersionOverride="$(XUnitVersion)" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\Microsoft.Diagnostics.Monitoring.Options\Microsoft.Diagnostics.Monitoring.Options.csproj" />
+    <ProjectReference Include="..\..\Microsoft.Diagnostics.Monitoring.WebApi\Microsoft.Diagnostics.Monitoring.WebApi.csproj" />
+    <ProjectReference Include="..\Microsoft.Diagnostics.Monitoring.TestProcessCleanupStartupHook\Microsoft.Diagnostics.Monitoring.TestProcessCleanupStartupHook.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Microsoft.Diagnostics.Monitoring.Profiler.UnitTests" />
+    <InternalsVisibleTo Include="CollectionRuleActions.UnitTests" />
     <InternalsVisibleTo Include="Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests" />
     <InternalsVisibleTo Include="Microsoft.Diagnostics.Monitoring.Tool.UnitTests" />
+    <InternalsVisibleTo Include="Microsoft.Diagnostics.Monitoring.AzureBlobStorageTests.UnitTests" />
+    <InternalsVisibleTo Include="Microsoft.Diagnostics.Monitoring.UnitTestApp" />
   </ItemGroup>
 
   <Import Project="GenerateDotNetHost.targets" />

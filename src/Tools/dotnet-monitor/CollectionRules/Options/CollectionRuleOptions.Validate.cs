@@ -1,6 +1,7 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
+
+#nullable disable
 
 using System;
 using System.Collections.Generic;
@@ -14,6 +15,14 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Options
         IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
         {
             List<ValidationResult> results = new();
+
+            // ErrorList is populated by incorrectly using templates - this will be empty if all templates names can be resolved or if templates are not used.
+            results.AddRange(ErrorList);
+
+            if (results.Count > 0)
+            {
+                return results;
+            }
 
             ValidationContext filtersContext = new(Filters, validationContext, validationContext.Items);
             filtersContext.MemberName = nameof(Filters);
@@ -31,7 +40,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Options
             ValidationHelper.TryValidateItems(Actions, actionsContext, results);
 
             var actionNames = new HashSet<string>(StringComparer.Ordinal);
-            foreach(CollectionRuleActionOptions option in Actions)
+            foreach (CollectionRuleActionOptions option in Actions)
             {
                 if (!string.IsNullOrEmpty(option.Name) && !actionNames.Add(option.Name))
                 {

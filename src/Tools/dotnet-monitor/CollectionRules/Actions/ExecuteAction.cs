@@ -1,10 +1,8 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Monitoring.EventPipe;
 using Microsoft.Diagnostics.Monitoring.WebApi;
-using Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Exceptions;
 using Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Options.Actions;
 using System;
 using System.Collections.Generic;
@@ -20,7 +18,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Actions
     internal sealed class ExecuteActionFactory :
         ICollectionRuleActionFactory<ExecuteOptions>
     {
-        public ICollectionRuleAction Create(IEndpointInfo endpointInfo, ExecuteOptions options)
+        public ICollectionRuleAction Create(IProcessInfo processInfo, ExecuteOptions options)
         {
             if (null == options)
             {
@@ -30,23 +28,23 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Actions
             ValidationContext context = new(options, null, items: null);
             Validator.ValidateObject(options, context, validateAllProperties: true);
 
-            return new ExecuteAction(endpointInfo, options);
+            return new ExecuteAction(processInfo, options);
         }
 
         internal sealed class ExecuteAction :
             CollectionRuleActionBase<ExecuteOptions>
         {
-            public ExecuteAction(IEndpointInfo endpointInfo, ExecuteOptions options)
-                : base(endpointInfo, options)
+            public ExecuteAction(IProcessInfo processInfo, ExecuteOptions options)
+                : base(processInfo, options)
             {
             }
 
             protected override async Task<CollectionRuleActionResult> ExecuteCoreAsync(
-                TaskCompletionSource<object> startCompleteSource,
+                CollectionRuleMetadata? collectionRuleMetadata,
                 CancellationToken token)
             {
                 string path = Options.Path;
-                string arguments = Options.Arguments;
+                string? arguments = Options.Arguments;
                 bool IgnoreExitCode = Options.IgnoreExitCode.GetValueOrDefault(ExecuteOptionsDefaults.IgnoreExitCode);
 
                 ValidateFilePath(path);
@@ -54,7 +52,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Actions
                 // May want to capture stdout and stderr and return as part of the result in the future
                 using Process process = new Process();
 
-                process.StartInfo = new ProcessStartInfo(path, arguments);
+                process.StartInfo = new ProcessStartInfo(path, arguments ?? string.Empty);
                 process.StartInfo.RedirectStandardOutput = true;
 
                 process.EnableRaisingEvents = true;
@@ -68,10 +66,13 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Actions
 
                 if (!process.Start())
                 {
-                    throw new CollectionRuleActionException(new InvalidOperationException(string.Format(CultureInfo.InvariantCulture, Strings.ErrorMessage_UnableToStartProcess, process.StartInfo.FileName, process.StartInfo.Arguments)));
+                    throw new InvalidOperationException(string.Format(CultureInfo.InvariantCulture, Strings.ErrorMessage_UnableToStartProcess, process.StartInfo.FileName, process.StartInfo.Arguments));
                 }
 
-                startCompleteSource.TrySetResult(null);
+                if (!TrySetStarted())
+                {
+                    throw new InvalidOperationException();
+                }
 
                 // Wait for process to exit; cancellation is handled by the exitedSource
                 await exitedSource.Task.ConfigureAwait(false);
@@ -81,9 +82,9 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Actions
                 return new CollectionRuleActionResult()
                 {
                     OutputValues = new Dictionary<string, string>(StringComparer.Ordinal)
-                    {
-                        { "ExitCode", process.ExitCode.ToString(CultureInfo.InvariantCulture) }
-                    }
+                        {
+                            { "ExitCode", process.ExitCode.ToString(CultureInfo.InvariantCulture) }
+                        }
                 };
             }
 
@@ -91,7 +92,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Actions
             {
                 if (!File.Exists(path))
                 {
-                    throw new CollectionRuleActionException(new FileNotFoundException(string.Format(CultureInfo.InvariantCulture, Strings.ErrorMessage_FileNotFound, path)));
+                    throw new FileNotFoundException(string.Format(CultureInfo.InvariantCulture, Strings.ErrorMessage_FileNotFound, path));
                 }
             }
 
@@ -99,7 +100,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Actions
             {
                 if (!ignoreExitCode && exitCode != 0)
                 {
-                    throw new CollectionRuleActionException(new InvalidOperationException(string.Format(CultureInfo.InvariantCulture, Strings.ErrorMessage_NonzeroExitCode, exitCode.ToString(CultureInfo.InvariantCulture))));
+                    throw new InvalidOperationException(string.Format(CultureInfo.InvariantCulture, Strings.ErrorMessage_NonzeroExitCode, exitCode.ToString(CultureInfo.InvariantCulture)));
                 }
             }
         }

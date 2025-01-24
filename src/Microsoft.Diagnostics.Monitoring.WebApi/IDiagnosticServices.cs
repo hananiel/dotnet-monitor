@@ -1,6 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using System.Collections.Generic;
 using System.Threading;
@@ -17,7 +16,7 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
         /// <summary>
         /// Returns running processes, optionally based on filter criteria.
         /// </summary>
-        Task<IEnumerable<IProcessInfo>> GetProcessesAsync(DiagProcessFilter processFilter, CancellationToken token);
+        Task<IEnumerable<IProcessInfo>> GetProcessesAsync(DiagProcessFilter? processFilter, CancellationToken token);
 
         /// <summary>
         /// Returns a process based on a key. If no key is specified, the DefaultProcess configuration is used.
@@ -30,15 +29,15 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi
         Task<IProcessInfo> GetProcessAsync(ProcessKey? processKey, CancellationToken token);
     }
 
-    internal interface IProcessInfo
+    public interface IProcessInfo
     {
         IEndpointInfo EndpointInfo { get; }
 
-        string CommandLine { get; }
+        string? CommandLine { get; }
 
-        public string OperatingSystem { get; }
+        public string? OperatingSystem { get; }
 
-        public string ProcessArchitecture { get; }
+        public string? ProcessArchitecture { get; }
 
         string ProcessName { get; }
     }

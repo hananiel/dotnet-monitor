@@ -1,17 +1,15 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Monitoring.EventPipe;
 using Microsoft.Diagnostics.Monitoring.Options;
 using Microsoft.Diagnostics.Monitoring.WebApi;
 using Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Options.Actions;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Threading;
-using System.Threading.Tasks;
 using Utils = Microsoft.Diagnostics.Monitoring.WebApi.Utilities;
 
 namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Actions
@@ -26,7 +24,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Actions
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         }
 
-        public ICollectionRuleAction Create(IEndpointInfo endpointInfo, CollectLogsOptions options)
+        public ICollectionRuleAction Create(IProcessInfo processInfo, CollectLogsOptions options)
         {
             if (null == options)
             {
@@ -36,29 +34,23 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Actions
             ValidationContext context = new(options, _serviceProvider, items: null);
             Validator.ValidateObject(options, context, validateAllProperties: true);
 
-            return new CollectLogsAction(_serviceProvider, endpointInfo, options);
+            return new CollectLogsAction(_serviceProvider, processInfo, options);
         }
 
         private sealed class CollectLogsAction :
-            CollectionRuleActionBase<CollectLogsOptions>
+            CollectionRuleEgressActionBase<CollectLogsOptions>
         {
-            private readonly IServiceProvider _serviceProvider;
-
-            public CollectLogsAction(IServiceProvider serviceProvider, IEndpointInfo endpointInfo, CollectLogsOptions options)
-                : base(endpointInfo, options)
+            public CollectLogsAction(IServiceProvider serviceProvider, IProcessInfo processInfo, CollectLogsOptions options)
+                : base(serviceProvider, processInfo, options)
             {
-                _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
             }
 
-            protected override async Task<CollectionRuleActionResult> ExecuteCoreAsync(
-                TaskCompletionSource<object> startCompletionSource,
-                CancellationToken token)
+            protected override EgressOperation CreateArtifactOperation(CollectionRuleMetadata? collectionRuleMetadata)
             {
                 TimeSpan duration = Options.Duration.GetValueOrDefault(TimeSpan.Parse(CollectLogsOptionsDefaults.Duration));
                 bool useAppFilters = Options.UseAppFilters.GetValueOrDefault(CollectLogsOptionsDefaults.UseAppFilters);
                 LogLevel defaultLevel = Options.DefaultLevel.GetValueOrDefault(CollectLogsOptionsDefaults.DefaultLevel);
-                Dictionary<string, LogLevel?> filterSpecs = Options.FilterSpecs;
-                string egressProvider = Options.Egress;
+                Dictionary<string, LogLevel?>? filterSpecs = Options.FilterSpecs;
                 LogFormat logFormat = Options.Format.GetValueOrDefault(CollectLogsOptionsDefaults.Format);
 
                 var settings = new EventLogsPipelineSettings()
@@ -69,30 +61,25 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Actions
                     FilterSpecs = filterSpecs
                 };
 
-                string fileName = LogsUtilities.GenerateLogsFileName(EndpointInfo);
-                string contentType = LogsUtilities.GetLogsContentType(logFormat);
-
                 KeyValueLogScope scope = Utils.CreateArtifactScope(Utils.ArtifactType_Logs, EndpointInfo);
 
-                EgressOperation egressOperation = new EgressOperation(
-                    (outputStream, token) => LogsUtilities.CaptureLogsAsync(startCompletionSource, logFormat, EndpointInfo, settings, outputStream, token),
-                    egressProvider,
-                    fileName,
+                ILogsOperationFactory operationFactory = ServiceProvider.GetRequiredService<ILogsOperationFactory>();
+
+                IArtifactOperation operation = operationFactory.Create(
                     EndpointInfo,
-                    contentType,
-                    scope);
+                    settings,
+                    logFormat);
 
-                ExecutionResult<EgressResult> result = await egressOperation.ExecuteAsync(_serviceProvider, token);
+                EgressOperation egressOperation = new EgressOperation(
+                    operation,
+                    Options.Egress,
+                    Options.ArtifactName,
+                    ProcessInfo,
+                    scope,
+                    null,
+                    collectionRuleMetadata);
 
-                string logsFilePath = result.Result.Value;
-
-                return new CollectionRuleActionResult()
-                {
-                    OutputValues = new Dictionary<string, string>(StringComparer.Ordinal)
-                    {
-                        { CollectionRuleActionConstants.EgressPathOutputValueName, logsFilePath }
-                    }
-                };
+                return egressOperation;
             }
         }
     }

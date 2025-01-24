@@ -1,6 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using System.Text.Json.Serialization;
 
@@ -12,13 +11,13 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi.Models
         /// The dotnet monitor version.
         /// </summary>
         [JsonPropertyName("version")]
-        public string Version { get; set; }
+        public string? Version { get; set; }
 
         /// <summary>
         /// The dotnet runtime version.
         /// </summary>
         [JsonPropertyName("runtimeVersion")]
-        public string RuntimeVersion { get; set; }
+        public string? RuntimeVersion { get; set; }
 
         /// <summary>
         /// Indicates whether dotnet monitor is in 'connect' mode or 'listen' mode.
@@ -30,6 +29,6 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi.Models
         /// The name of the named pipe or unix domain socket to use for connecting to the diagnostic server.
         /// </summary>
         [JsonPropertyName("diagnosticPortName")]
-        public string DiagnosticPortName { get; set; }
+        public string? DiagnosticPortName { get; set; }
     }
 }

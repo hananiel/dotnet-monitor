@@ -1,0 +1,10 @@
+{
+  "FileSystem": {
+    "artifacts": {
+      "directoryPath": "/artifacts" /*JsonConfigurationProvider for 'UserSpecifiedFile.json' (Optional)*/
+    }
+  },
+  "Properties": {
+    "MonitorBlobAccountKey": "accountKey" /*JsonConfigurationProvider for 'UserSpecifiedFile.json' (Optional)*/
+  }
+}

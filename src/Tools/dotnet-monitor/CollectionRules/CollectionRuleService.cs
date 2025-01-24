@@ -1,14 +1,16 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Monitoring.EventPipe;
 using Microsoft.Diagnostics.Monitoring.WebApi;
+using Microsoft.Diagnostics.Monitoring.WebApi.Models;
 using Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Channels;
@@ -16,7 +18,7 @@ using System.Threading.Tasks;
 
 namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules
 {
-    internal class CollectionRuleService : BackgroundService, IAsyncDisposable
+    internal class CollectionRuleService : BackgroundService, IAsyncDisposable, ICollectionRuleService
     {
         // The number of items that the pending removal channel will hold before forcing
         // the writer to wait for capacity to be available.
@@ -27,6 +29,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules
         private readonly ChannelWriter<CollectionRuleContainer> _containersToRemoveWriter;
         private readonly ILogger<CollectionRuleService> _logger;
         private readonly CollectionRulesConfigurationProvider _provider;
+        private readonly DiagnosticPortOptions _portOptions;
         private readonly IServiceProvider _serviceProvider;
 
         private long _disposalState;
@@ -34,12 +37,14 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules
         public CollectionRuleService(
             IServiceProvider serviceProvider,
             ILogger<CollectionRuleService> logger,
-            CollectionRulesConfigurationProvider provider
+            CollectionRulesConfigurationProvider provider,
+            IOptions<DiagnosticPortOptions> portOptions
             )
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _provider = provider ?? throw new ArgumentNullException(nameof(provider));
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+            _portOptions = portOptions.Value ?? throw new ArgumentNullException(nameof(portOptions));
 
             BoundedChannelOptions containersToRemoveChannelOptions = new(PendingRemovalChannelCapacity)
             {
@@ -51,28 +56,32 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules
                 Channel.CreateBounded<CollectionRuleContainer>(containersToRemoveChannelOptions);
             _containersToRemoveReader = containersToRemoveChannel.Reader;
             _containersToRemoveWriter = containersToRemoveChannel.Writer;
+
+            CheckForListenDiagnosticMode();
         }
 
         public async ValueTask DisposeAsync()
         {
-            if (DisposableHelper.CanDispose(ref _disposalState))
+            if (!DisposableHelper.CanDispose(ref _disposalState))
             {
-                _containersToRemoveWriter.TryComplete();
+                return;
+            }
 
-                CollectionRuleContainer[] containers;
-                lock (_containersMap)
-                {
-                    containers = _containersMap.Values.ToArray();
-                }
+            _containersToRemoveWriter.TryComplete();
 
-                // This will cancel the background execution if
-                // BackgroundService.StopAsync wasn't called.
-                Dispose();
+            CollectionRuleContainer[] containers;
+            lock (_containersMap)
+            {
+                containers = _containersMap.Values.ToArray();
+            }
 
-                foreach (CollectionRuleContainer container in containers)
-                {
-                    await container.DisposeAsync();
-                }
+            // This will cancel the background execution if
+            // BackgroundService.StopAsync wasn't called.
+            Dispose();
+
+            foreach (CollectionRuleContainer container in containers)
+            {
+                await container.DisposeAsync();
             }
         }
 
@@ -87,7 +96,11 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules
                 throw new ArgumentNullException(nameof(endpointInfo));
             }
 
-            IProcessInfo processInfo = await ProcessInfoImpl.FromEndpointInfoAsync(endpointInfo);
+            IProcessInfo processInfo;
+            {
+                using CancellationTokenSource extendedInfoCancellation = new(ProcessInfoImpl.ExtendedProcessInfoTimeout);
+                processInfo = await ProcessInfoImpl.FromEndpointInfoAsync(endpointInfo, extendedInfoCancellation.Token);
+            }
 
             IReadOnlyCollection<string> ruleNames = _provider.GetCollectionRuleNames();
 
@@ -111,7 +124,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules
             IEndpointInfo endpointInfo,
             CancellationToken token)
         {
-            CollectionRuleContainer container;
+            CollectionRuleContainer? container;
             lock (_containersMap)
             {
                 if (!_containersMap.Remove(endpointInfo, out container))
@@ -151,9 +164,13 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules
                     await rulesChangedTaskSource.Task;
                 }
 
+                _containersMap.Keys.ToList().ForEach(key => _containersMap[key].Pipelines.Clear());
+
                 rulesChanged = false;
 
                 _logger.CollectionRuleConfigurationChanged();
+
+                CheckForListenDiagnosticMode();
 
                 // Get a copy of the container list to avoid having to
                 // lock the entire list during stop and restart of all containers.
@@ -221,6 +238,15 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules
             }
         }
 
+        private void CheckForListenDiagnosticMode()
+        {
+            if (DiagnosticPortOptionsExtensions.GetConnectionMode(_portOptions) != DiagnosticPortConnectionMode.Listen
+                && _provider.GetCollectionRuleNames().Any())
+            {
+                _logger.DiagnosticPortNotInListenModeForCollectionRules();
+            }
+        }
+
         private async Task StopAndDisposeContainerAsync(CancellationToken token)
         {
             while (!token.IsCancellationRequested)
@@ -231,6 +257,100 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules
 
                 await container.DisposeAsync();
             }
+        }
+
+        public Dictionary<string, CollectionRuleDescription> GetCollectionRulesDescriptions(IEndpointInfo endpointInfo)
+        {
+            Dictionary<string, CollectionRuleDescription> collectionRulesDescriptions = new();
+
+            if (_containersMap.TryGetValue(endpointInfo, out CollectionRuleContainer? container))
+            {
+                container.Pipelines.ForEach(pipeline => collectionRulesDescriptions.Add(pipeline.Context.Name, GetCollectionRuleDescription(pipeline)));
+            }
+
+            return collectionRulesDescriptions;
+        }
+
+        public CollectionRuleDetailedDescription? GetCollectionRuleDetailedDescription(string collectionRuleName, IEndpointInfo endpointInfo)
+        {
+            if (_containersMap.TryGetValue(endpointInfo, out CollectionRuleContainer? container))
+            {
+                IEnumerable<CollectionRulePipeline> pipelines = container.Pipelines.Where(pipeline => pipeline.Context.Name.Equals(collectionRuleName));
+
+                if (null == pipelines || !pipelines.Any())
+                {
+                    throw new ArgumentException(string.Format(CultureInfo.InvariantCulture, Strings.ErrorMessage_CollectionRuleNotFound, collectionRuleName));
+                }
+
+                return GetCollectionRuleDetailedDescription(pipelines.First());
+            }
+
+            return null;
+        }
+
+        internal static CollectionRuleDescription GetCollectionRuleDescription(CollectionRulePipeline pipeline)
+        {
+            CollectionRulePipelineState pipelineState = pipeline.GetPipelineState();
+
+            CollectionRuleDescription description = new()
+            {
+                State = pipelineState.CurrentState,
+                StateReason = pipelineState.CurrentStateReason
+            };
+
+            return description;
+        }
+
+        internal static CollectionRuleDetailedDescription GetCollectionRuleDetailedDescription(CollectionRulePipeline pipeline)
+        {
+            CollectionRulePipelineState pipelineState = pipeline.GetPipelineState();
+
+            CollectionRuleDetailedDescription description = new()
+            {
+                State = pipelineState.CurrentState,
+                StateReason = pipelineState.CurrentStateReason,
+                LifetimeOccurrences = pipelineState.AllExecutionTimestamps.Count,
+                ActionCountLimit = pipelineState.ActionCountLimit,
+                SlidingWindowOccurrences = pipelineState.ExecutionTimestamps.Count,
+                ActionCountSlidingWindowDurationLimit = pipelineState.ActionCountSlidingWindowDuration
+            };
+
+            if (description.State != CollectionRuleState.Finished)
+            {
+                DateTime currentTime = pipeline.Context.HostInfo.TimeProvider.GetUtcNow().UtcDateTime;
+
+                description.SlidingWindowDurationCountdown = GetSWDCountdown(pipelineState.ExecutionTimestamps, description.ActionCountSlidingWindowDurationLimit, description.ActionCountLimit, currentTime);
+                description.RuleFinishedCountdown = GetRuleFinishedCountdown(pipelineState.PipelineStartTime, pipelineState.RuleDuration, currentTime);
+            }
+
+            return description;
+        }
+
+        private static TimeSpan? GetSWDCountdown(Queue<DateTime> timestamps, TimeSpan? actionCountWindowDuration, int actionCount, DateTime currentTime)
+        {
+            if (actionCountWindowDuration.HasValue && timestamps.Count >= actionCount)
+            {
+                TimeSpan countdown = timestamps.Peek() - (currentTime - actionCountWindowDuration.Value);
+                return GetTruncatedPositiveTimeSpan(countdown);
+            }
+
+            return null;
+        }
+
+        private static TimeSpan? GetRuleFinishedCountdown(DateTime pipelineStartTime, TimeSpan? ruleDuration, DateTime currentTime)
+        {
+            if (ruleDuration.HasValue)
+            {
+                TimeSpan countdown = ruleDuration.Value - (currentTime - pipelineStartTime);
+                return GetTruncatedPositiveTimeSpan(countdown);
+            }
+
+            return null;
+        }
+
+        private static TimeSpan? GetTruncatedPositiveTimeSpan(TimeSpan original)
+        {
+            return (original > TimeSpan.Zero) ? TimeSpan.FromSeconds((long)original.TotalSeconds) : null; // Intentionally lose millisecond precision
         }
     }
 }

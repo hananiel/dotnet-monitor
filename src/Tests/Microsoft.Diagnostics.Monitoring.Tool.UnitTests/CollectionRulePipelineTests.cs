@@ -1,25 +1,14 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.Diagnostics.Monitoring.TestCommon;
 using Microsoft.Diagnostics.Monitoring.TestCommon.Options;
 using Microsoft.Diagnostics.Monitoring.TestCommon.Runners;
-using Microsoft.Diagnostics.Monitoring.Tool.UnitTests.CollectionRules.Actions;
 using Microsoft.Diagnostics.Monitoring.Tool.UnitTests.CollectionRules.Triggers;
 using Microsoft.Diagnostics.Monitoring.WebApi;
-using Microsoft.Diagnostics.Tools.Monitor.CollectionRules;
-using Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Actions;
-using Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Options;
-using Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Options.Triggers;
-using Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Triggers;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -27,6 +16,7 @@ using Xunit.Abstractions;
 
 namespace Microsoft.Diagnostics.Monitoring.Tool.UnitTests
 {
+    [TargetFrameworkMonikerTrait(TargetFrameworkMonikerExtensions.CurrentTargetFrameworkMoniker)]
     public class CollectionRulePipelineTests
     {
         private readonly TimeSpan DefaultPipelineTimeout = TimeSpan.FromSeconds(30);
@@ -48,7 +38,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.UnitTests
         {
             CallbackActionService callbackService = new(_outputHelper);
 
-            return ExecuteScenario(
+            return CollectionRulePipelineTestsHelper.ExecuteScenario(
                 appTfm,
                 TestAppScenarios.AsyncWait.Name,
                 TestRuleName,
@@ -100,6 +90,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.UnitTests
 
                     await runner.SendCommandAsync(TestAppScenarios.AsyncWait.Commands.Continue);
                 },
+                _outputHelper,
                 services =>
                 {
                     services.RegisterTestAction(callbackService);
@@ -109,13 +100,13 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.UnitTests
         /// <summary>
         /// Test that the pipeline works with the EventCounter trigger.
         /// </summary>
-        [Theory]
+        [Theory(Skip = "Nondeterministic")]
         [MemberData(nameof(GetTfmsSupportingPortListener))]
         public Task CollectionRulePipeline_EventCounterTriggerTest(TargetFrameworkMoniker appTfm)
         {
             CallbackActionService callbackService = new(_outputHelper);
 
-            return ExecuteScenario(
+            return CollectionRulePipelineTestsHelper.ExecuteScenario(
                 appTfm,
                 TestAppScenarios.SpinWait.Name,
                 TestRuleName,
@@ -162,6 +153,207 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.UnitTests
 
                     await pipeline.StopAsync(cancellationSource.Token);
                 },
+                _outputHelper,
+                services =>
+                {
+                    services.RegisterTestAction(callbackService);
+                });
+        }
+
+        /// <summary>
+        /// Test that the pipeline works with the EventMeter trigger (gauge instrument).
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(GetCurrentTfm))]
+        public Task CollectionRulePipeline_EventMeterTriggerTest_Gauge(TargetFrameworkMoniker appTfm)
+        {
+            CallbackActionService callbackService = new(_outputHelper);
+
+            return CollectionRulePipelineTestsHelper.ExecuteScenario(
+                appTfm,
+                TestAppScenarios.Metrics.Name,
+                TestRuleName,
+                options =>
+                {
+                    options.GlobalCounter = new WebApi.GlobalCounterOptions()
+                    {
+                        IntervalSeconds = 1
+                    };
+
+                    options.CreateCollectionRule(TestRuleName)
+                        .SetEventMeterTrigger(options =>
+                        {
+                            // gauge greater than 0 for 2 seconds
+                            options.MeterName = LiveMetricsTestConstants.ProviderName1;
+                            options.InstrumentName = LiveMetricsTestConstants.GaugeName;
+                            options.GreaterThan = 0;
+                            options.SlidingWindowDuration = TimeSpan.FromSeconds(2);
+                        })
+                        .AddAction(CallbackAction.ActionName);
+                },
+                async (runner, pipeline, callbacks) =>
+                {
+                    using CancellationTokenSource cancellationSource = new(DefaultPipelineTimeout);
+
+                    Task startedTask = callbacks.StartWaitForPipelineStarted();
+
+                    // Register first callback before pipeline starts. This callback should be completed after
+                    // the pipeline finishes starting.
+                    Task actionStartedTask = await callbackService.StartWaitForCallbackAsync(cancellationSource.Token);
+
+                    // Start pipeline with EventMeter trigger.
+                    Task runTask = pipeline.RunAsync(cancellationSource.Token);
+
+                    await startedTask.WithCancellation(cancellationSource.Token);
+
+                    // This should not complete until the trigger conditions are satisfied for the first time.
+                    await actionStartedTask.WithCancellation(cancellationSource.Token);
+
+                    VerifyExecutionCount(callbackService, 1);
+
+                    await runner.SendCommandAsync(TestAppScenarios.Metrics.Commands.Continue);
+
+                    // Validate that the pipeline is not in a completed state.
+                    // The pipeline should already be running since it was started.
+                    Assert.False(runTask.IsCompleted);
+
+                    await pipeline.StopAsync(cancellationSource.Token);
+                },
+                _outputHelper,
+                services =>
+                {
+                    services.RegisterTestAction(callbackService);
+                });
+        }
+
+        /// <summary>
+        /// Test that the pipeline works with the EventMeter trigger greater-than (histogram instrument).
+        /// </summary>
+        [Theory(Skip = "https://github.com/dotnet/dotnet-monitor/issues/6154")]
+        [MemberData(nameof(GetCurrentTfm))]
+        public Task CollectionRulePipeline_EventMeterTriggerTest_Histogram_GreaterThan(TargetFrameworkMoniker appTfm)
+        {
+            CallbackActionService callbackService = new(_outputHelper);
+
+            return CollectionRulePipelineTestsHelper.ExecuteScenario(
+                appTfm,
+                TestAppScenarios.Metrics.Name,
+                TestRuleName,
+                options =>
+                {
+                    options.GlobalCounter = new WebApi.GlobalCounterOptions()
+                    {
+                        IntervalSeconds = 1
+                    };
+
+                    options.CreateCollectionRule(TestRuleName)
+                        .SetEventMeterTrigger(options =>
+                        {
+                            // histogram 95th percentile greater than 60 for 2 seconds
+                            options.MeterName = LiveMetricsTestConstants.ProviderName1;
+                            options.InstrumentName = LiveMetricsTestConstants.HistogramName1;
+                            options.HistogramPercentile = 95;
+                            options.GreaterThan = 0;
+                            options.SlidingWindowDuration = TimeSpan.FromSeconds(2);
+                        })
+                        .AddAction(CallbackAction.ActionName);
+                },
+                async (runner, pipeline, callbacks) =>
+                {
+                    using CancellationTokenSource cancellationSource = new(DefaultPipelineTimeout);
+
+                    Task startedTask = callbacks.StartWaitForPipelineStarted();
+
+                    // Register first callback before pipeline starts. This callback should be completed after
+                    // the pipeline finishes starting.
+                    Task actionStartedTask = await callbackService.StartWaitForCallbackAsync(cancellationSource.Token);
+
+                    // Start pipeline with EventMeter trigger.
+                    Task runTask = pipeline.RunAsync(cancellationSource.Token);
+
+                    await startedTask.WithCancellation(cancellationSource.Token);
+
+                    // This should not complete until the trigger conditions are satisfied for the first time.
+                    await actionStartedTask.WithCancellation(cancellationSource.Token);
+
+                    VerifyExecutionCount(callbackService, 1);
+
+                    await runner.SendCommandAsync(TestAppScenarios.Metrics.Commands.Continue);
+
+                    // Validate that the pipeline is not in a completed state.
+                    // The pipeline should already be running since it was started.
+                    Assert.False(runTask.IsCompleted);
+
+                    await pipeline.StopAsync(cancellationSource.Token);
+                },
+                _outputHelper,
+                services =>
+                {
+                    services.RegisterTestAction(callbackService);
+                });
+        }
+
+        /// <summary>
+        /// Test that the pipeline works with the EventMeter trigger less-than (histogram instrument).
+        /// </summary>
+        [Theory(Skip = "https://github.com/dotnet/dotnet-monitor/issues/4184")]
+        [MemberData(nameof(GetCurrentTfm))]
+        public Task CollectionRulePipeline_EventMeterTriggerTest_Histogram_LessThan(TargetFrameworkMoniker appTfm)
+        {
+            CallbackActionService callbackService = new(_outputHelper);
+
+            return CollectionRulePipelineTestsHelper.ExecuteScenario(
+                appTfm,
+                TestAppScenarios.Metrics.Name,
+                TestRuleName,
+                options =>
+                {
+                    options.GlobalCounter = new WebApi.GlobalCounterOptions()
+                    {
+                        IntervalSeconds = 1
+                    };
+
+                    options.CreateCollectionRule(TestRuleName)
+                        .SetEventMeterTrigger(options =>
+                        {
+                            // histogram 50% percentile less than 75 for 2 seconds
+                            options.MeterName = LiveMetricsTestConstants.ProviderName1;
+                            options.InstrumentName = LiveMetricsTestConstants.HistogramName1;
+                            options.HistogramPercentile = 50;
+                            options.LessThan = 101;
+                            options.SlidingWindowDuration = TimeSpan.FromSeconds(2);
+                        })
+                        .AddAction(CallbackAction.ActionName);
+                },
+                async (runner, pipeline, callbacks) =>
+                {
+                    using CancellationTokenSource cancellationSource = new(DefaultPipelineTimeout);
+
+                    Task startedTask = callbacks.StartWaitForPipelineStarted();
+
+                    // Register first callback before pipeline starts. This callback should be completed after
+                    // the pipeline finishes starting.
+                    Task actionStartedTask = await callbackService.StartWaitForCallbackAsync(cancellationSource.Token);
+
+                    // Start pipeline with EventMeter trigger.
+                    Task runTask = pipeline.RunAsync(cancellationSource.Token);
+
+                    await startedTask.WithCancellation(cancellationSource.Token);
+
+                    // This should not complete until the trigger conditions are satisfied for the first time.
+                    await actionStartedTask.WithCancellation(cancellationSource.Token);
+
+                    VerifyExecutionCount(callbackService, 1);
+
+                    await runner.SendCommandAsync(TestAppScenarios.Metrics.Commands.Continue);
+
+                    // Validate that the pipeline is not in a completed state.
+                    // The pipeline should already be running since it was started.
+                    Assert.False(runTask.IsCompleted);
+
+                    await pipeline.StopAsync(cancellationSource.Token);
+                },
+                _outputHelper,
                 services =>
                 {
                     services.RegisterTestAction(callbackService);
@@ -178,7 +370,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.UnitTests
             ManualTriggerService triggerService = new();
             CallbackActionService callbackService = new(_outputHelper);
 
-            return ExecuteScenario(
+            return CollectionRulePipelineTestsHelper.ExecuteScenario(
                 appTfm,
                 TestAppScenarios.AsyncWait.Name,
                 TestRuleName,
@@ -201,6 +393,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.UnitTests
                     // Action list should not have been executed.
                     VerifyExecutionCount(callbackService, expectedCount: 0);
                 },
+                _outputHelper,
                 services =>
                 {
                     services.RegisterManualTrigger(triggerService);
@@ -218,11 +411,11 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.UnitTests
             const int ExpectedActionExecutionCount = 3;
             TimeSpan ClockIncrementDuration = TimeSpan.FromMilliseconds(10);
 
-            MockSystemClock clock = new();
+            MockTimeProvider timeProvider = new();
             ManualTriggerService triggerService = new();
-            CallbackActionService callbackService = new(_outputHelper, clock);
+            CallbackActionService callbackService = new(_outputHelper, timeProvider);
 
-            return ExecuteScenario(
+            return CollectionRulePipelineTestsHelper.ExecuteScenario(
                 appTfm,
                 TestAppScenarios.AsyncWait.Name,
                 TestRuleName,
@@ -243,13 +436,13 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.UnitTests
 
                     await startedTask.WithCancellation(cancellationSource.Token);
 
-                    await ManualTriggerAsync(
+                    await CollectionRulePipelineTestsHelper.ManualTriggerAsync(
                         triggerService,
                         callbackService,
                         callbacks,
                         ExpectedActionExecutionCount,
                         ExpectedActionExecutionCount,
-                        clock,
+                        timeProvider,
                         ClockIncrementDuration,
                         completesOnLastExpectedIteration: true,
                         cancellationSource.Token);
@@ -262,16 +455,17 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.UnitTests
                     // Action list should have been executed the expected number of times
                     VerifyExecutionCount(callbackService, ExpectedActionExecutionCount);
                 },
+                _outputHelper,
                 services =>
                 {
-                    services.AddSingleton<ISystemClock>(clock);
+                    services.AddSingleton<TimeProvider>(timeProvider);
                     services.RegisterManualTrigger(triggerService);
                     services.RegisterTestAction(callbackService);
                 });
         }
 
         /// <summary>
-        /// Test that the CollectionRulePipeline thottles actions when action count limit is reached within window.
+        /// Test that the CollectionRulePipeline throttles actions when action count limit is reached within window.
         /// </summary>
         [Theory]
         [MemberData(nameof(GetTfmsSupportingPortListener))]
@@ -282,11 +476,11 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.UnitTests
             TimeSpan SlidingWindowDuration = TimeSpan.FromMilliseconds(100);
             TimeSpan ClockIncrementDuration = TimeSpan.FromMilliseconds(10);
 
-            MockSystemClock clock = new();
+            MockTimeProvider timeProvider = new();
             ManualTriggerService triggerService = new();
-            CallbackActionService callbackService = new(_outputHelper, clock);
+            CallbackActionService callbackService = new(_outputHelper, timeProvider);
 
-            return ExecuteScenario(
+            return CollectionRulePipelineTestsHelper.ExecuteScenario(
                 appTfm,
                 TestAppScenarios.AsyncWait.Name,
                 TestRuleName,
@@ -309,13 +503,13 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.UnitTests
 
                     await startedTask.WithCancellation(cancellationSource.Token);
 
-                    await ManualTriggerAsync(
+                    await CollectionRulePipelineTestsHelper.ManualTriggerAsync(
                         triggerService,
                         callbackService,
                         callbacks,
                         IterationCount,
                         ExpectedActionExecutionCount,
-                        clock,
+                        timeProvider,
                         ClockIncrementDuration,
                         completesOnLastExpectedIteration: false,
                         cancellationSource.Token);
@@ -323,15 +517,15 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.UnitTests
                     // Action list should have been executed the expected number of times
                     VerifyExecutionCount(callbackService, ExpectedActionExecutionCount);
 
-                    clock.Increment(2 * SlidingWindowDuration);
+                    timeProvider.Increment(2 * SlidingWindowDuration);
 
-                    await ManualTriggerAsync(
+                    await CollectionRulePipelineTestsHelper.ManualTriggerAsync(
                         triggerService,
                         callbackService,
                         callbacks,
                         IterationCount,
                         ExpectedActionExecutionCount,
-                        clock,
+                        timeProvider,
                         ClockIncrementDuration,
                         completesOnLastExpectedIteration: false,
                         cancellationSource.Token);
@@ -339,16 +533,17 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.UnitTests
                     // Expect total action invocation count to be twice the limit
                     VerifyExecutionCount(callbackService, 2 * ExpectedActionExecutionCount);
 
-                    // Pipeline should not run to completion due to sliding window existance.
+                    // Pipeline should not run to completion due to sliding window existence.
                     Assert.False(runTask.IsCompleted);
 
                     await runner.SendCommandAsync(TestAppScenarios.AsyncWait.Commands.Continue);
 
                     await pipeline.StopAsync(cancellationSource.Token);
                 },
+                _outputHelper,
                 services =>
                 {
-                    services.AddSingleton<ISystemClock>(clock);
+                    services.AddSingleton<TimeProvider>(timeProvider);
                     services.RegisterManualTrigger(triggerService);
                     services.RegisterTestAction(callbackService);
                 });
@@ -368,100 +563,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.UnitTests
             Assert.Equal(expectedCount, service.ExecutionTimestamps.Count);
         }
 
-        /// <summary>
-        /// Manually trigger for a number of iterations (<paramref name="iterationCount"/>) and test
-        /// that the actions are invoked for the number of expected iterations (<paramref name="expectedCount"/>) and
-        /// are throttled for the remaining number of iterations.
-        /// </summary>
-        private async Task ManualTriggerAsync(
-            ManualTriggerService triggerService,
-            CallbackActionService callbackService,
-            PipelineCallbacks callbacks,
-            int iterationCount,
-            int expectedCount,
-            MockSystemClock clock,
-            TimeSpan clockIncrementDuration,
-            bool completesOnLastExpectedIteration,
-            CancellationToken token)
-        {
-            if (iterationCount < expectedCount)
-            {
-                throw new InvalidOperationException("Number of iterations must be greater than or equal to number of expected iterations.");
-            }
-
-            int iteration = 0;
-            Task actionStartedTask;
-            Task actionsThrottledTask = callbacks.StartWaitForActionsThrottled();
-
-            // Test that the actions are run for each iteration where the actions are expected to run.
-            while (iteration < expectedCount)
-            {
-                iteration++;
-
-                TaskCompletionSource<object> startedSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
-                EventHandler startedHandler = (s, e) => startedSource.TrySetResult(null);
-                using var _ = token.Register(() => startedSource.TrySetCanceled(token));
-
-                actionStartedTask = await callbackService.StartWaitForCallbackAsync(token);
-
-                triggerService.NotifyStarted += startedHandler;
-
-                // Manually invoke the trigger.
-                triggerService.NotifyTriggerSubscribers();
-
-                // Wait until action has started.
-                await actionStartedTask.WithCancellation(token);
-
-                // If the pipeline completes on the last expected iteration, the trigger will not be started again.
-                // Skip this check for the last expected iteration if the pipeline is expected to complete.
-                if (!completesOnLastExpectedIteration || iteration != expectedCount)
-                {
-                    await startedSource.WithCancellation(token);
-                }
-
-                triggerService.NotifyStarted -= startedHandler;
-
-                // Advance the clock source.
-                clock.Increment(clockIncrementDuration);
-            }
-
-            // Check that actions were not throttled.
-            Assert.False(actionsThrottledTask.IsCompleted);
-
-            actionStartedTask = await callbackService.StartWaitForCallbackAsync(token);
-
-            // Test that actions are throttled for remaining iterations.
-            while (iteration < iterationCount)
-            {
-                iteration++;
-
-                TaskCompletionSource<object> startedSource = new(TaskCreationOptions.RunContinuationsAsynchronously);
-                EventHandler startedHandler = (s, e) => startedSource.TrySetResult(null);
-                using var _ = token.Register(() => startedSource.TrySetCanceled(token));
-
-                actionsThrottledTask = callbacks.StartWaitForActionsThrottled();
-
-                triggerService.NotifyStarted += startedHandler;
-
-                // Manually invoke the trigger.
-                triggerService.NotifyTriggerSubscribers();
-
-                // Check throttling has occurred.
-                await actionsThrottledTask.WithCancellation(token);
-
-                await startedSource.WithCancellation(token);
-
-                triggerService.NotifyStarted -= startedHandler;
-
-                // Advance the clock source.
-                clock.Increment(clockIncrementDuration);
-            }
-
-            // Check that no actions have been executed.
-            Assert.False(actionStartedTask.IsCompleted);
-        }
-
-        private async Task ManualTriggerBurstAsync(ManualTriggerService service, int count = 10)
+        private static async Task ManualTriggerBurstAsync(ManualTriggerService service, int count = 10)
         {
             for (int i = 0; i < count; i++)
             {
@@ -472,160 +574,14 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.UnitTests
 
         public static IEnumerable<object[]> GetTfmsSupportingPortListener()
         {
-            yield return new object[] { TargetFrameworkMoniker.Net50 };
             yield return new object[] { TargetFrameworkMoniker.Net60 };
+            yield return new object[] { TargetFrameworkMoniker.Net70 };
+            yield return new object[] { TargetFrameworkMoniker.Net80 };
         }
 
-        private async Task ExecuteScenario(
-            TargetFrameworkMoniker tfm,
-            string scenarioName,
-            string collectionRuleName,
-            Action<Tools.Monitor.RootOptions> setup,
-            Func<AppRunner, CollectionRulePipeline, PipelineCallbacks, Task> pipelineCallback,
-            Action<IServiceCollection> servicesCallback = null)
+        public static IEnumerable<object[]> GetCurrentTfm()
         {
-            EndpointInfoSourceCallback endpointInfoCallback = new(_outputHelper);
-            EndpointUtilities endpointUtilities = new(_outputHelper);
-            await using ServerSourceHolder sourceHolder = await endpointUtilities.StartServerAsync(endpointInfoCallback);
-
-            AppRunner runner = new(_outputHelper, Assembly.GetExecutingAssembly(), tfm: tfm);
-            runner.ConnectionMode = DiagnosticPortConnectionMode.Connect;
-            runner.DiagnosticPortPath = sourceHolder.TransportName;
-            runner.ScenarioName = scenarioName;            
-
-            Task<IEndpointInfo> endpointInfoTask = endpointInfoCallback.WaitAddedEndpointInfoAsync(runner, CommonTestTimeouts.StartProcess);
-
-            await runner.ExecuteAsync(async () =>
-            {
-                IEndpointInfo endpointInfo = await endpointInfoTask;
-
-                await TestHostHelper.CreateCollectionRulesHost(
-                    _outputHelper,
-                    setup,
-                    async host =>
-                    {
-                        ActionListExecutor actionListExecutor =
-                            host.Services.GetRequiredService<ActionListExecutor>();
-                        ICollectionRuleTriggerOperations triggerOperations =
-                            host.Services.GetRequiredService<ICollectionRuleTriggerOperations>();
-                        IOptionsMonitor<CollectionRuleOptions> optionsMonitor =
-                            host.Services.GetRequiredService<IOptionsMonitor<CollectionRuleOptions>>();
-                        ILogger<CollectionRuleService> logger =
-                            host.Services.GetRequiredService<ILogger<CollectionRuleService>>();
-                        ISystemClock clock =
-                            host.Services.GetRequiredService<ISystemClock>();
-
-                        PipelineCallbacks callbacks = new();
-
-                        CollectionRuleContext context = new(
-                            collectionRuleName,
-                            optionsMonitor.Get(collectionRuleName),
-                            endpointInfo,
-                            logger,
-                            clock,
-                            callbacks.NotifyActionsThrottled);
-
-                        await using CollectionRulePipeline pipeline = new(
-                            actionListExecutor,
-                            triggerOperations,
-                            context,
-                            callbacks.NotifyPipelineStarted);
-
-                        await pipelineCallback(runner, pipeline, callbacks);
-
-                        Assert.Equal(1, callbacks.StartedCount);
-                    },
-                    servicesCallback);
-            });
-        }
-
-        private class PipelineCallbacks
-        {
-            private readonly List<CompletionEntry> _entries = new();
-
-            private int _startedCount;
-
-            public Task StartWaitForPipelineStarted()
-            {
-                return RegisterCompletion(PipelineCallbackType.PipelineStarted);
-            }
-
-            public Task StartWaitForActionsThrottled()
-            {
-                return RegisterCompletion(PipelineCallbackType.ActionsThrottled);
-            }
-
-            public void NotifyActionsThrottled()
-            {
-                NotifyCompletions(PipelineCallbackType.ActionsThrottled);
-            }
-
-            public void NotifyPipelineStarted()
-            {
-                _startedCount++;
-                NotifyCompletions(PipelineCallbackType.PipelineStarted);
-            }
-
-            private Task RegisterCompletion(PipelineCallbackType callbackType)
-            {
-                CompletionEntry entry = new(callbackType);
-                lock (_entries)
-                {
-                    _entries.Add(entry);
-                }
-                return entry.CompletionTask;
-            }
-
-            private void NotifyCompletions(PipelineCallbackType callbackType)
-            {
-                List<CompletionEntry> matchingEntries;
-                lock (_entries)
-                {
-                    matchingEntries = new(_entries.Count);
-                    for (int i = 0; i < _entries.Count; i++)
-                    {
-                        CompletionEntry entry = _entries[i];
-                        if (_entries[i].CallbackType == callbackType)
-                        {
-                            _entries.RemoveAt(i);
-                            matchingEntries.Add(entry);
-                            i--;
-                        }
-                    }
-                }
-
-                foreach (CompletionEntry entry in matchingEntries)
-                {
-                    entry.Complete();
-                }
-            }
-
-            public int StartedCount => _startedCount;
-
-            private class CompletionEntry
-            {
-                private readonly TaskCompletionSource<object> _source = new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-                public CompletionEntry(PipelineCallbackType callbackType)
-                {
-                    CallbackType = callbackType;
-                }
-
-                public void Complete()
-                {
-                    _source.TrySetResult(null);
-                }
-
-                public PipelineCallbackType CallbackType { get; }
-
-                public Task CompletionTask => _source.Task;
-            }
-
-            private enum PipelineCallbackType
-            {
-                PipelineStarted,
-                ActionsThrottled
-            }
+            yield return new object[] { TargetFrameworkMoniker.Net80 };
         }
     }
 }

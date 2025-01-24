@@ -1,7 +1,11 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
+#nullable enable
+
+#if UNITTEST
+using Microsoft.Diagnostics.Monitoring.TestCommon;
+#endif
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections;
@@ -15,7 +19,6 @@ namespace Microsoft.Diagnostics.Tools.Monitor
 {
     internal static class CommonOptionsExtensions
     {
-        private const string EnvironmentVariablePrefix = "DotnetMonitor_";
         private const string KeySegmentSeparator = "__";
 
         /// <summary>
@@ -40,7 +43,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor
         public static IDictionary<string, string> ToEnvironmentConfiguration(this RootOptions options, bool useDotnetMonitorPrefix = false)
         {
             Dictionary<string, string> variables = new(StringComparer.OrdinalIgnoreCase);
-            MapObject(options, useDotnetMonitorPrefix ? EnvironmentVariablePrefix : string.Empty, KeySegmentSeparator, variables);
+            MapObject(options, useDotnetMonitorPrefix ? ToolIdentifiers.StandardPrefix : string.Empty, KeySegmentSeparator, variables);
             return variables;
         }
 
@@ -61,11 +64,11 @@ namespace Microsoft.Diagnostics.Tools.Monitor
         {
             foreach (var key in dictionary.Keys)
             {
-                object value = dictionary[key];
+                object? value = dictionary[key];
 
                 if (null != value)
                 {
-                    string keyString = Convert.ToString(key, CultureInfo.InvariantCulture);
+                    string keyString = ConvertUtils.ToString(key, CultureInfo.InvariantCulture);
                     MapValue(
                         value,
                         FormattableString.Invariant($"{prefix}{keyString}"),
@@ -79,7 +82,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor
         {
             for (int index = 0; index < list.Count; index++)
             {
-                object value = list[index];
+                object? value = list[index];
                 if (null != value)
                 {
                     MapValue(
@@ -106,7 +109,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor
             }
         }
 
-        private static void MapValue(object value, string valueName, string separator, IDictionary<string, string> map)
+        private static void MapValue(object? value, string valueName, string separator, IDictionary<string, string> map)
         {
             if (null != value)
             {
@@ -119,7 +122,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor
                 {
                     map.Add(
                         valueName,
-                        Convert.ToString(value, CultureInfo.InvariantCulture));
+                        ConvertUtils.ToString(value, CultureInfo.InvariantCulture));
                 }
                 else
                 {

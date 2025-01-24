@@ -1,15 +1,12 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Monitoring.WebApi;
 using Microsoft.Diagnostics.NETCore.Client;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -39,7 +36,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor
             CancellationToken timeoutToken = timeoutTokenSource.Token;
             CancellationToken linkedToken = linkedTokenSource.Token;
 
-            var endpointInfoTasks = new List<Task<EndpointInfo>>();
+            var endpointInfoTasks = new List<Task<EndpointInfo?>>();
             // Run the EndpointInfo creation parallel. The call to FromProcessId sends
             // a GetProcessInfo command to the runtime instance to get additional information.
             foreach (int pid in DiagnosticsClient.GetPublishedProcesses())
@@ -48,7 +45,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor
                 {
                     try
                     {
-                        return await EndpointInfo.FromProcessIdAsync(pid, linkedToken);
+                        return await EndpointInfo.FromProcessIdAsync(pid, new NotSupportedServiceProvider(), linkedToken);
                     }
                     // Catch when timeout on waiting for EndpointInfo creation. Some runtime instances may be
                     // in a bad state and not respond to any requests on their diagnostic pipe; gracefully abandon
@@ -71,7 +68,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor
 
             await Task.WhenAll(endpointInfoTasks);
 
-            return endpointInfoTasks.Where(t => t.Result != null).Select(t => t.Result);
+            return endpointInfoTasks.Where(t => t.Result != null).Select(t => t.Result).Cast<IEndpointInfo>();
         }
     }
 }

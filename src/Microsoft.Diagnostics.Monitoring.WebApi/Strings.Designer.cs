@@ -61,6 +61,15 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Thread: (0x{0:X}).
+        /// </summary>
+        internal static string CallstackThreadHeader {
+            get {
+                return ResourceManager.GetString("CallstackThreadHeader", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unable to get process environment..
         /// </summary>
         internal static string ErrorMessage_CanNotGetEnvironment {
@@ -79,6 +88,15 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to HTTP request failed with status code: &apos;{0}&apos;.
+        /// </summary>
+        internal static string ErrorMessage_HttpOperationFailed {
+            get {
+                return ResourceManager.GetString("ErrorMessage_HttpOperationFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Invalid metric count..
         /// </summary>
         internal static string ErrorMessage_InvalidMetricCount {
@@ -88,7 +106,7 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Custom trace metric provider &apos;{0}&apos; must use the global counter interval &apos;{1}&apos;.
+        ///   Looks up a localized string similar to Custom trace metric provider &apos;{0}&apos; must use the expected counter interval &apos;{1}&apos;..
         /// </summary>
         internal static string ErrorMessage_InvalidMetricInterval {
             get {
@@ -133,6 +151,15 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Operation does not support being stopped..
+        /// </summary>
+        internal static string ErrorMessage_OperationDoesNotSupportBeingStopped {
+            get {
+                return ResourceManager.GetString("ErrorMessage_OperationDoesNotSupportBeingStopped", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Operation not found..
         /// </summary>
         internal static string ErrorMessage_OperationNotFound {
@@ -151,11 +178,47 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Operation is not starting..
+        /// </summary>
+        internal static string ErrorMessage_OperationNotStarting {
+            get {
+                return ResourceManager.GetString("ErrorMessage_OperationNotStarting", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unable to enumerate processes..
         /// </summary>
-        internal static string ErrorMessage_ProcessEnumeratuinFailed {
+        internal static string ErrorMessage_ProcessEnumerationFailed {
             get {
-                return ResourceManager.GetString("ErrorMessage_ProcessEnumeratuinFailed", resourceCulture);
+                return ResourceManager.GetString("ErrorMessage_ProcessEnumerationFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The message payload is {1} bytes which exceeds the maximum size of {0} bytes. .
+        /// </summary>
+        internal static string ErrorMessage_ProfilerPayloadTooLarge {
+            get {
+                return ResourceManager.GetString("ErrorMessage_ProfilerPayloadTooLarge", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Resource {0} cannot be found.
+        /// </summary>
+        internal static string ErrorMessage_ResourceNotFound {
+            get {
+                return ResourceManager.GetString("ErrorMessage_ResourceNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unable to process stack in timely manner..
+        /// </summary>
+        internal static string ErrorMessage_StacksTimeout {
+            get {
+                return ResourceManager.GetString("ErrorMessage_StacksTimeout", resourceCulture);
             }
         }
         
@@ -223,11 +286,119 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Call Stacks.
+        /// </summary>
+        internal static string FeatureName_CallStacks {
+            get {
+                return ResourceManager.GetString("FeatureName_CallStacks", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Exceptions.
+        /// </summary>
+        internal static string FeatureName_Exceptions {
+            get {
+                return ResourceManager.GetString("FeatureName_Exceptions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Parameter Capturing.
+        /// </summary>
+        internal static string FeatureName_ParameterCapturing {
+            get {
+                return ResourceManager.GetString("FeatureName_ParameterCapturing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Server Endpoint Pruning Algorithm V2.
+        /// </summary>
+        internal static string FeatureName_ServerEndpointPruningAlgorithmV2 {
+            get {
+                return ResourceManager.GetString("FeatureName_ServerEndpointPruningAlgorithmV2", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The counter {0} ended and is no longer receiving metrics..
+        /// </summary>
+        internal static string LogFormatString_CounterEndedPayload {
+            get {
+                return ResourceManager.GetString("LogFormatString_CounterEndedPayload", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to determine the default process..
+        /// </summary>
+        internal static string LogFormatString_DefaultProcessUnexpectedFailure {
+            get {
+                return ResourceManager.GetString("LogFormatString_DefaultProcessUnexpectedFailure", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to get diagnostic response from runtime in process {processId}..
+        /// </summary>
+        internal static string LogFormatString_DiagnosticRequestFailed {
+            get {
+                return ResourceManager.GetString("LogFormatString_DiagnosticRequestFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Egressed artifact to {location}.
         /// </summary>
         internal static string LogFormatString_EgressedArtifact {
             get {
                 return ResourceManager.GetString("LogFormatString_EgressedArtifact", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to {0}.
+        /// </summary>
+        internal static string LogFormatString_ErrorPayload {
+            get {
+                return ResourceManager.GetString("LogFormatString_ErrorPayload", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Stopped waiting for metrics to complete writing..
+        /// </summary>
+        internal static string LogFormatString_MetricsAbandonCompletion {
+            get {
+                return ResourceManager.GetString("LogFormatString_MetricsAbandonCompletion", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Some metrics were dropped. Count: {Count}.
+        /// </summary>
+        internal static string LogFormatString_MetricsDropped {
+            get {
+                return ResourceManager.GetString("LogFormatString_MetricsDropped", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Some metrics may have not be processed. Count: {Count}.
+        /// </summary>
+        internal static string LogFormatString_MetricsUnprocessed {
+            get {
+                return ResourceManager.GetString("LogFormatString_MetricsUnprocessed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Failed to write metrics..
+        /// </summary>
+        internal static string LogFormatString_MetricsWriteFailed {
+            get {
+                return ResourceManager.GetString("LogFormatString_MetricsWriteFailed", resourceCulture);
             }
         }
         
@@ -259,6 +430,33 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Failed to stop the &apos;{operationId}&apos; operation..
+        /// </summary>
+        internal static string LogFormatString_StopOperationFailed {
+            get {
+                return ResourceManager.GetString("LogFormatString_StopOperationFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Hit stopping trace event &apos;{providerName}/{eventName}&apos;.
+        /// </summary>
+        internal static string LogFormatString_StoppingTraceEventHit {
+            get {
+                return ResourceManager.GetString("LogFormatString_StoppingTraceEventHit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to One or more field names specified in the payload filter for event &apos;{providerName}/{eventName}&apos; do not match any of the known field names: &apos;{payloadFieldNames}&apos;. As a result the requested stopping event is unreachable; will continue to collect the trace for the remaining specified duration..
+        /// </summary>
+        internal static string LogFormatString_StoppingTraceEventPayloadFilterMismatch {
+            get {
+                return ResourceManager.GetString("LogFormatString_StoppingTraceEventPayloadFilterMismatch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Request limit for endpoint reached. Limit: {limit}, oustanding requests: {requests}.
         /// </summary>
         internal static string LogFormatString_ThrottledEndpoint {
@@ -273,6 +471,87 @@ namespace Microsoft.Diagnostics.Monitoring.WebApi {
         internal static string LogFormatString_WrittenToHttpStream {
             get {
                 return ResourceManager.GetString("LogFormatString_WrittenToHttpStream", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to This collection rule has had its triggering conditions satisfied and is currently executing its action list..
+        /// </summary>
+        internal static string Message_CollectionRuleStateReason_ExecutingActions {
+            get {
+                return ResourceManager.GetString("Message_CollectionRuleStateReason_ExecutingActions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The collection rule will no longer trigger because the ActionCount was reached..
+        /// </summary>
+        internal static string Message_CollectionRuleStateReason_Finished_ActionCount {
+            get {
+                return ResourceManager.GetString("Message_CollectionRuleStateReason_Finished_ActionCount", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The collection rule will no longer trigger because a failure occurred with message: {0}..
+        /// </summary>
+        internal static string Message_CollectionRuleStateReason_Finished_Failure {
+            get {
+                return ResourceManager.GetString("Message_CollectionRuleStateReason_Finished_Failure", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The collection rule will no longer trigger because the RuleDuration limit was reached..
+        /// </summary>
+        internal static string Message_CollectionRuleStateReason_Finished_RuleDuration {
+            get {
+                return ResourceManager.GetString("Message_CollectionRuleStateReason_Finished_RuleDuration", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The collection rule will no longer trigger because the Startup trigger only executes once..
+        /// </summary>
+        internal static string Message_CollectionRuleStateReason_Finished_Startup {
+            get {
+                return ResourceManager.GetString("Message_CollectionRuleStateReason_Finished_Startup", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to This collection rule is active and waiting for its triggering conditions to be satisfied..
+        /// </summary>
+        internal static string Message_CollectionRuleStateReason_Running {
+            get {
+                return ResourceManager.GetString("Message_CollectionRuleStateReason_Running", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to This collection rule is temporarily throttled because the ActionCountLimit has been reached within the ActionCountSlidingWindowDuration..
+        /// </summary>
+        internal static string Message_CollectionRuleStateReason_Throttled {
+            get {
+                return ResourceManager.GetString("Message_CollectionRuleStateReason_Throttled", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The &apos;{0}&apos; feature is not enabled..
+        /// </summary>
+        internal static string Message_FeatureNotEnabled {
+            get {
+                return ResourceManager.GetString("Message_FeatureNotEnabled", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Finished generating in-process artifact.
+        /// </summary>
+        internal static string Message_GeneratedInProcessArtifact {
+            get {
+                return ResourceManager.GetString("Message_GeneratedInProcessArtifact", resourceCulture);
             }
         }
     }

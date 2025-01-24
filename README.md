@@ -2,9 +2,26 @@
 
 This repository contains the source code for dotnet-monitor, a diagnostic tool for capturing diagnostic artifacts in an operator-driven or automated manner.
 
+## Overview
+
+Running a .NET application in diverse environments can make collecting diagnostics artifacts (e.g., logs, traces, process dumps) challenging. dotnet monitor is a tool that provides an unified way to collect these diagnostic artifacts regardless of where your application is run.
+
+There are two different mechanisms for collection of these diagnostic artifacts:
+
+- An [HTTP API](documentation/api/README.md) for on demand collection of artifacts. You can call these API endpoints when you already know your application is experiencing an issue and you are interested in gathering more information.
+- [Triggers](documentation/collectionrules/collectionrules.md) for rule-based configuration for always-on collection of artifacts. You may configure rules to collect diagnostic artifacts when a desired condition is met, for example, collect a process dump when you have sustained high CPU.
+
 ## Releases
 
 See [Releases](documentation/releases.md) for the release history.
+
+## Docs
+
+[Docs](documentation/README.md) - Learn how to install, configure, and use dotnet-monitor.
+
+## Survey
+
+[Survey](https://aka.ms/dotnet-monitor-survey) - Provide anonymous feedback on your experience using dotnet-monitor.
 
 ## Building the Repository
 
@@ -18,7 +35,9 @@ Also see info about related [Microsoft .NET Core and ASP.NET Core Bug Bounty Pro
 
 ## Useful Links
 
-See [Announcing dotnet-monitor](https://devblogs.microsoft.com/dotnet/announcing-dotnet-monitor-in-net-6/)
+Blog Post: [Announcing dotnet-monitor](https://devblogs.microsoft.com/dotnet/announcing-dotnet-monitor-in-net-6/)
+
+See [Videos and Tutorials](documentation/videos-and-tutorials.md) for walkthroughs on how to use dotnet monitor.
 
 ## .NET Foundation
 
@@ -31,7 +50,7 @@ There are many .NET related projects on GitHub.
 
 This project has adopted the code of conduct defined by the [Contributor Covenant](http://contributor-covenant.org/) to clarify expected behavior in our community. For more information, see the [.NET Foundation Code of Conduct](http://www.dotnetfoundation.org/code-of-conduct).
 
-General .NET OSS discussions: [.NET Foundation forums](https://forums.dotnetfoundation.org)
+General .NET OSS discussions: [.NET Foundation Discussions](https://github.com/dotnet-foundation/Home/discussions)
 
 ## License
 

@@ -1,6 +1,6 @@
 # Operations - Delete
 
-Cancel a running operation. Only valid against operations in the `Running` state. Transitions the operation to `Cancelled` state.
+Cancel a running operation. Only valid against operations in the `Running` or `Stopping` state. Transitions the operation to `Cancelled` state. Cancelling an operation may result in an incomplete or unreadable artifact. To stop an operation early while still producing a valid artifact, use the [Stop Operation](operations-stop.md).
 
 ## HTTP Route
 
@@ -25,7 +25,7 @@ Allowed schemes:
 | Name | Type | Description | Content Type |
 |---|---|---|---|
 | 200 OK |  | The operation was successfully cancelled. | `application/json` |
-| 400 Bad Request | [ValidationProblemDetails](definitions.md#ValidationProblemDetails) | An error occurred due to invalid input. The response body describes the specific problem(s). | `application/problem+json` |
+| 400 Bad Request | [ValidationProblemDetails](definitions.md#validationproblemdetails) | An error occurred due to invalid input. The response body describes the specific problem(s). | `application/problem+json` |
 | 401 Unauthorized | | Authentication is required to complete the request. See [Authentication](./../authentication.md) for further information. | |
 
 ## Examples
@@ -42,6 +42,7 @@ Authorization: Bearer fffffffffffffffffffffffffffffffffffffffffff=
 
 ```http
 HTTP/1.1 200 OK
+```
 
 ## Supported Runtimes
 

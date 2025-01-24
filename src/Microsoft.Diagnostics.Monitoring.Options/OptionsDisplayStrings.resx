@@ -173,45 +173,9 @@
     <value>The list of HTTP response status codes to monitor. Each item of the list can be a single code or a range of codes (e.g. "400-499").</value>
     <comment>The description provided for the StatusCodes parameter on AspNetResponseStatusOptions.</comment>
   </data>
-  <data name="DisplayAttributeDescription_AzureBlobEgressProviderOptions_AccountKey" xml:space="preserve">
-    <value>The account key used to access the Azure blob storage account.</value>
-    <comment>The description provided for the AccountKey parameter on AzureBlobEgressProviderOptions.</comment>
-  </data>
-  <data name="DisplayAttributeDescription_AzureBlobEgressProviderOptions_AccountKeyName" xml:space="preserve">
-    <value>The name of the account key used to look up the value from the Egress options Properties map.</value>
-    <comment>The description provided for the AccountKeyName parameter on AzureBlobEgressProviderOptions.</comment>
-  </data>
-  <data name="DisplayAttributeDescription_AzureBlobEgressProviderOptions_AccountUri" xml:space="preserve">
-    <value>The URI of the Azure blob storage account.</value>
-    <comment>The description provided for the AccountUri parameter on AzureBlobEgressProviderOptions.</comment>
-  </data>
-  <data name="DisplayAttributeDescription_AzureBlobEgressProviderOptions_BlobPrefix" xml:space="preserve">
-    <value>The prefix to prepend to the blob name.</value>
-    <comment>The description provided for the BlobPrefix parameter on AzureBlobEgressProviderOptions.</comment>
-  </data>
-  <data name="DisplayAttributeDescription_AzureBlobEgressProviderOptions_ContainerName" xml:space="preserve">
-    <value>The name of the container to which the blob will be egressed. If egressing to the root container, use the "$root" sentinel value.</value>
-    <comment>The description provided for the ContainerName parameter on AzureBlobEgressProviderOptions.</comment>
-  </data>
-  <data name="DisplayAttributeDescription_AzureBlobEgressProviderOptions_SharedAccessSignature" xml:space="preserve">
-    <value>The shared access signature (SAS) used to access the azure blob storage account.</value>
-    <comment>The description provided for the SharedAccessSignature parameter on AzureBlobEgressProviderOptions.</comment>
-  </data>
-  <data name="DisplayAttributeDescription_AzureBlobEgressProviderOptions_SharedAccessSignatureName" xml:space="preserve">
-    <value>The name of the shared access signature (SAS) used to look up the value from the Egress options Properties map.</value>
-    <comment>The description provided for the SharedAccessSignatureName parameter on AzureBlobEgressProviderOptions.</comment>
-  </data>
-  <data name="DisplayAttributeDescription_CollectDumpOptions_Egress" xml:space="preserve">
-    <value>The name of the egress provider to which the dump is egressed.</value>
-    <comment>The description provided for the Egress parameter on CollectDumpOptions.</comment>
-  </data>
   <data name="DisplayAttributeDescription_CollectDumpOptions_Type" xml:space="preserve">
     <value>The type of dump to collect from the target process.</value>
     <comment>The description provided for the Type parameter on CollectDumpOptions.</comment>
-  </data>
-  <data name="DisplayAttributeDescription_CollectGCDumpOptions_Egress" xml:space="preserve">
-    <value>The name of the egress provider to which the GC dump is egressed.</value>
-    <comment>The description provided for the Egress parameter on CollectGCDumpOptions.</comment>
   </data>
   <data name="DisplayAttributeDescription_CollectionRuleActionOptions_Settings" xml:space="preserve">
     <value>The settings to pass to the action when it is executed. Settings may be optional if the action doesn't require settings or its settings are all optional.</value>
@@ -221,17 +185,17 @@
     <value>The type of action to execute.</value>
     <comment>The description provided for the Type parameter on CollectionRuleActionOptions.</comment>
   </data>
-  <data name="DisplayAttributeDescription_CollectionRuleLimitsOptions_ActionCount" xml:space="preserve">
-    <value>The number of times the action list may be executed before being throttled.</value>
-    <comment>The description provided for the ActionCount parameter on CollectionRuleLimitsOptions.</comment>
+  <data name="DisplayAttributeDescription_CollectionRuleLimitsDefaultsOptions_ActionCount" xml:space="preserve">
+    <value>The default number of times the action list may be executed before being throttled.</value>
+    <comment>The description provided for the ActionCount parameter on CollectionRuleLimitsDefaultsOptions.</comment>
   </data>
-  <data name="DisplayAttributeDescription_CollectionRuleLimitsOptions_ActionCountSlidingWindowDuration" xml:space="preserve">
-    <value>The sliding window of time to consider whether the action list should be throttled based on the number of times the action list was executed. Executions that fall outside the window will not count toward the limit specified in the ActionCount setting.</value>
-    <comment>The description provided for the ActionCountSlidingWindowDuration parameter on CollectionRuleLimitsOptions.</comment>
+  <data name="DisplayAttributeDescription_CollectionRuleLimitsDefaultsOptions_ActionCountSlidingWindowDuration" xml:space="preserve">
+    <value>The default sliding window of time to consider whether the action list should be throttled based on the number of times the action list was executed.</value>
+    <comment>The description provided for the ActionCountSlidingWindowDuration parameter on CollectionRuleLimitsDefaultsOptions.</comment>
   </data>
-  <data name="DisplayAttributeDescription_CollectionRuleLimitsOptions_RuleDuration" xml:space="preserve">
-    <value>The amount of time before the rule will stop monitoring a process after it has been applied to a process. If not specified, the rule will monitor the process with the trigger indefinitely.</value>
-    <comment>The description provided for the RuleDuration parameter on CollectionRuleLimitsOptions.</comment>
+  <data name="DisplayAttributeDescription_CollectionRuleLimitsDefaultsOptions_RuleDuration" xml:space="preserve">
+    <value>The default amount of time before the rule will stop monitoring a process after it has been applied to a process.</value>
+    <comment>The description provided for the RuleDuration parameter on CollectionRuleLimitsDefaultsOptions.</comment>
   </data>
   <data name="DisplayAttributeDescription_CollectionRuleOptions_Actions" xml:space="preserve">
     <value>The list of actions to be executed when the trigger raises its notification.</value>
@@ -261,14 +225,6 @@
     <value>The default log level at which logs are collected for entries in the FilterSpecs that do not have a specified LogLevel value.</value>
     <comment>The description provided for the LogLevel parameter on CollectLogsOptions.</comment>
   </data>
-  <data name="DisplayAttributeDescription_CollectLogsOptions_Duration" xml:space="preserve">
-    <value>The duration of time in which logs are collected.</value>
-    <comment>The description provided for the Duration parameter on CollectLogsOptions.</comment>
-  </data>
-  <data name="DisplayAttributeDescription_CollectLogsOptions_Egress" xml:space="preserve">
-    <value>The name of the egress provider to which the logs are egressed.</value>
-    <comment>The description provided for the Egress parameter on CollectLogsOptions.</comment>
-  </data>
   <data name="DisplayAttributeDescription_CollectLogsOptions_FilterSpecs" xml:space="preserve">
     <value>A custom mapping of logger categories to log levels that describes at what level a log statement that matches one of the given categories should be captured.</value>
     <comment>The description provided for the FilterSpecs parameter on CollectLogsOptions.</comment>
@@ -280,14 +236,6 @@
   <data name="DisplayAttributeDescription_CollectTraceOptions_BufferSizeMegabytes" xml:space="preserve">
     <value>The size of the event pipe buffer to use in the target process. If the event pipe buffer fills with too many events, newer events will be dropped until the buffer is drained to fit new events.</value>
     <comment>The description provided for the BufferSizeMegabytes parameter on CollectTraceOptions.</comment>
-  </data>
-  <data name="DisplayAttributeDescription_CollectTraceOptions_Duration" xml:space="preserve">
-    <value>The duration of time in which trace events are collected.</value>
-    <comment>The description provided for the Duration parameter on CollectTraceOptions.</comment>
-  </data>
-  <data name="DisplayAttributeDescription_CollectTraceOptions_Egress" xml:space="preserve">
-    <value>The name of the egress provider to which the trace is egressed.</value>
-    <comment>The description provided for the Egress parameter on CollectTraceOptions.</comment>
   </data>
   <data name="DisplayAttributeDescription_CollectTraceOptions_Profile" xml:space="preserve">
     <value>Use a predefined set of event providers and settings to capture in the trace. More than one profile may be specified at the same time. Either Profile or Providers must be specified, but not both.</value>
@@ -364,18 +312,6 @@
   <data name="DisplayAttributeDescription_DiagnosticPortOptions_MaxConnections" xml:space="preserve">
     <value>In 'Listen' mode, the maximum amount of connections to accept.</value>
     <comment>The description provided for the MaxConnections parameter on DiagnosticPortOptions.</comment>
-  </data>
-  <data name="DisplayAttributeDescription_EgressOptions_AzureBlobStorage" xml:space="preserve">
-    <value>Mapping of Azure blob storage egress provider names to their options.</value>
-    <comment>The description provided for the AzureBlobStorage parameter on EgressOptions.</comment>
-  </data>
-  <data name="DisplayAttributeDescription_EgressOptions_FileSystem" xml:space="preserve">
-    <value>Mapping of file system egress provider names to their options.</value>
-    <comment>The description provided for the FileSystem parameter on EgressOptions.</comment>
-  </data>
-  <data name="DisplayAttributeDescription_EgressOptions_Properties" xml:space="preserve">
-    <value>Additional properties, such as secrets, that can be referenced by the provider definitions.</value>
-    <comment>The description provided for the Properties parameter on EgressOptions.</comment>
   </data>
   <data name="DisplayAttributeDescription_EventCounterOptions_CounterName" xml:space="preserve">
     <value>The name of the counter to monitor.</value>
@@ -529,12 +465,14 @@
     <value>The location for temporary dump files. Defaults to the temp folder.</value>
     <comment>The description provided for the DumpTempFolder parameter on StorageOptions.</comment>
   </data>
-  <data name="ErrorMessage_TwoFieldsMissing" xml:space="preserve">
-    <value>The {0} field or the {1} field is required.</value>
-    <comment>Gets the format string for rejecting validation due to 2 missing fields where at least one is required.
-2 Format Parameters:
+  <data name="ErrorMessage_CredentialsMissing" xml:space="preserve">
+    <value>The {0} field, {1} field, {2} field, or {3} field is required.</value>
+    <comment>Gets the format string for rejecting validation due to 4 missing fields where at least one is required.
+4 Format Parameters:
 0. fieldNameOne: The name of the first field that is missing
-1. fieldNameTwo: The name of the second field that is missing</comment>
+1. fieldNameTwo: The name of the second field that is missing
+2. fieldNameThree: The name of the third field that is missing
+3. fieldNameFour: The name of the fourth field that is missing</comment>
   </data>
   <data name="DisplayAttributeDescription_CollectLogsOptions_Format" xml:space="preserve">
     <value>The format of the logs artifact.</value>
@@ -570,5 +508,272 @@
   <data name="DisplayAttributeDescription_GetEnvironmentVariableOptions_Name" xml:space="preserve">
     <value>The name of the environment variable to get.</value>
     <comment>The description provided for the Name parameter on GetEnvironmentVariableOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_ProcessFilterDescriptor_CommandLine" xml:space="preserve">
+    <value>Performs a match based on the contents of the command passed to launch the process on the system; this typically includes the executable path and arguments to the process.</value>
+    <comment>The description provided for the CommandLine parameter on ProcessFilterDescriptor.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_ProcessFilterDescriptor_ProcessId" xml:space="preserve">
+    <value>Performs a match based on the numerical ID of a process on the system.</value>
+    <comment>The description provided for the ProcessId parameter on ProcessFilterDescriptor.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_ProcessFilterDescriptor_ProcessName" xml:space="preserve">
+    <value>Performs a match based on the name of a process on the system.</value>
+    <comment>The description provided for the ProcessName parameter on ProcessFilterDescriptor.</comment>
+  </data>
+  <data name="ErrorMessage_FilterValueMissing" xml:space="preserve">
+    <value>A value is required for the process filter.</value>
+    <comment>Gets the format string for rejecting validation due to no value being provided for a process filter.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_CollectionRuleActionDefaultsOptions_Egress" xml:space="preserve">
+    <value>The name of the default Egress Provider.</value>
+    <comment>The description provided for the Egress parameter on CollectionRuleActionDefaultsOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_CollectionRuleTriggerDefaultsOptions_SlidingWindowDuration" xml:space="preserve">
+    <value>The default sliding window duration.</value>
+    <comment>The description provided for the SlidingWindowDuration parameter on CollectionRuleTriggerDefaultsOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_CollectionRuleTriggerDefaultsOptions_RequestCount" xml:space="preserve">
+    <value>The default threshold of the number of requests that start within the sliding window of time.</value>
+    <comment>The description provided for the RequestCount parameter on CollectionRuleTriggerDefaultsOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_CollectionRuleTriggerDefaultsOptions_ResponseCount" xml:space="preserve">
+    <value>The default threshold number of responses with matching status codes.</value>
+    <comment>The description provided for the ResponseCount parameter on CollectionRuleTriggerDefaultsOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_CollectionRuleLimitsOptions_ActionCount" xml:space="preserve">
+    <value>The number of times the action list may be executed before being throttled.</value>
+    <comment>The description provided for the ActionCount parameter on CollectionRuleLimitsOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_CollectionRuleLimitsOptions_ActionCountSlidingWindowDuration" xml:space="preserve">
+    <value>The sliding window of time to consider whether the action list should be throttled based on the number of times the action list was executed. Executions that fall outside the window will not count toward the limit specified in the ActionCount setting.</value>
+    <comment>The description provided for the ActionCountSlidingWindowDuration parameter on CollectionRuleLimitsOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_CollectionRuleLimitsOptions_RuleDuration" xml:space="preserve">
+    <value>The amount of time before the rule will stop monitoring a process after it has been applied to a process. If not specified, the rule will monitor the process with the trigger indefinitely.</value>
+    <comment>The description provided for the RuleDuration parameter on CollectionRuleLimitsOptions.</comment>
+  </data>
+  <data name="ErrorMessage_NoDefaultEgressProvider" xml:space="preserve">
+    <value>An egress provider must be specified if there is no default egress provider.</value>
+    <comment>Gets the format string for egress provider failure when there isn't one specified and no default exists. </comment>
+  </data>
+  <data name="ErrorMessage_NoDefaultRequestCount" xml:space="preserve">
+    <value>A request count must be specified if there is no default request count.</value>
+    <comment>Gets the format string for request count failure when there isn't one specified and no default exists. </comment>
+  </data>
+  <data name="ErrorMessage_NoDefaultResponseCount" xml:space="preserve">
+    <value>A response count must be specified if there is no default response count.</value>
+    <comment>Gets the format string for response count failure when there isn't one specified and no default exists. </comment>
+  </data>
+  <data name="ErrorMessage_StatusCodesRegularExpressionDoesNotMatch" xml:space="preserve">
+    <value>The field {0} must be a status code or status code range between 1xx and 5xx. E.g. 200, 400-500.</value>
+    <comment>Gets the format string for rejecting validation due to the field not matching the expected regular expression.
+1 Format Parameter:
+0. fieldName: The name of the field that does not match the regular expression</comment>
+  </data>
+  <data name="DisplayAttributeDescription_CollectionRuleDefaultsOptions_Actions" xml:space="preserve">
+    <value>The Collection Rule Defaults that can be applied to actions.</value>
+    <comment>The description provided for the Actions parameter on CollectionRuleDefaultsOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_CollectionRuleDefaultsOptions_Limits" xml:space="preserve">
+    <value>The Collection Rule Defaults that can be applied to limits.</value>
+    <comment>The description provided for the Limits parameter on CollectionRuleDefaultsOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_CollectionRuleDefaultsOptions_Triggers" xml:space="preserve">
+    <value>The Collection Rule Defaults that can be applied to triggers.</value>
+    <comment>The description provided for the Triggers parameter on CollectionRuleDefaultsOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_CPUUsageOptions_GreaterThan" xml:space="preserve">
+    <value>The threshold level as a percentage that the counter must maintain (or higher) for the specified duration.</value>
+    <comment>The description provided for the GreaterThan parameter on CPUUsageOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_CPUUsageOptions_LessThan" xml:space="preserve">
+    <value>The threshold level as a percentage that the counter must maintain (or lower) for the specified duration. If LessThan is specified, the default value of GreaterThan becomes null.</value>
+    <comment>The description provided for the LessThan parameter on CPUUsageOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_GCHeapSizeOptions_GreaterThan" xml:space="preserve">
+    <value>The threshold level in MBs that the counter must maintain (or higher) for the specified duration.</value>
+    <comment>The description provided for the GreaterThan parameter on GCHeapSizeOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_GCHeapSizeOptions_LessThan" xml:space="preserve">
+    <value>The threshold level in MBs that the counter must maintain (or lower) for the specified duration. If LessThan is specified, the default value of GreaterThan becomes null.</value>
+    <comment>The description provided for the LessThan parameter on GCHeapSizeOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_ThreadpoolQueueLengthOptions_GreaterThan" xml:space="preserve">
+    <value>The threshold level the counter must maintain (or higher) for the specified duration.</value>
+    <comment>The description provided for the GreaterThan parameter on ThreadpoolQueueLengthOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_ThreadpoolQueueLengthOptions_LessThan" xml:space="preserve">
+    <value>The threshold level the counter must maintain (or lower) for the specified duration. If LessThan is specified, the default value of GreaterThan becomes null.</value>
+    <comment>The description provided for the LessThan parameter on ThreadpoolQueueLengthOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_CollectArtifactOptions_Duration" xml:space="preserve">
+    <value>The duration of time in which the artifact is collected.</value>
+  </data>
+  <data name="DisplayAttributeDescription_CollectArtifactOptions_Egress" xml:space="preserve">
+    <value>The name of the egress provider to which the artifact is egressed.</value>
+  </data>
+  <data name="DisplayAttributeDescription_CollectLiveMetricsOptions_IncludeDefaultProviders" xml:space="preserve">
+    <value>Determines if the default counter providers should be used.</value>
+    <comment>The description provided for the IncludeDefaultProviders parameter on CollectLiveMetricsOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_CollectLiveMetricsOptions_Providers" xml:space="preserve">
+    <value>The array of providers for metrics to collect.</value>
+    <comment>The description provided for the Providers parameter on CollectLiveMetricsOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_DiagnosticPortOptions_DeleteEndpointOnStartup" xml:space="preserve">
+    <value>In 'Listen' connection mode, deletes the domain socket file used for diagnostic port communication.</value>
+  </data>
+  <data name="DisplayAttributeDescription_StorageOptions_SharedLibraryPath" xml:space="preserve">
+    <value>The location to which libraries shared with target processes will be copied at startup.</value>
+    <comment>The description provided for the SharedLibraryPath parameter on StorageOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_StorageOptions_DefaultSharedPath" xml:space="preserve">
+    <value>The default path where assets will be shared between dotnet-monitor and target processes. Dumps are temporarily stored under this path or in a sub folder unless DumpTempFolder is specified. Shared libraries are stored under this path or in a sub folder unless SharedLibraryPath is specified. On non-Windows platforms, a server diagnostic port is created with the name of 'dotnet-monitor.sock' immediately under this path if running in listen mode unless the diagnostic port is specified on the command line or the DiagnosticPort options are specified.</value>
+    <comment>The description provided for the DefaultSharedPath parameter on StorageOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_InProcessFeaturesOptions_Enabled" xml:space="preserve">
+    <value>Allows features that require diagnostic components to be loaded into target processes to be enabled. These features may have minimal performance impact on target processes.</value>
+  </data>
+  <data name="DisplayAttributeDescription_CollectStacksOptions_Format" xml:space="preserve">
+    <value>The format used to display the call stacks.</value>
+  </data>
+  <data name="DisplayAttributeDescription_CollectTraceOptions_StoppingEvent" xml:space="preserve">
+    <value>The event to watch for while collecting the trace, and once observed the trace will be stopped.</value>
+    <comment>The description provided for the StoppingEvent parameter on CollectTraceOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_TraceEventFilter_EventName" xml:space="preserve">
+    <value>The name of the event, which is a concatenation of the task name and opcode name, if any. The task and opcode names are separated by a '/'. If the event has no opcode, then the event name is just the task name.</value>
+    <comment>The description provided for the EventName parameter on TraceEventFilter.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_TraceEventFilter_ProviderName" xml:space="preserve">
+    <value>The event provider that will produce the specified event.</value>
+    <comment>The description provided for the ProviderName parameter on TraceEventFilter.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_TraceEventFilter_PayloadFilter" xml:space="preserve">
+    <value>A mapping of event payload field names to their expected value. A subset of the payload fields may be specified.</value>
+    <comment>The description provided for the PayloadFilter parameter on TraceEventFilter.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_MetricsOptions_MaxHistograms" xml:space="preserve">
+    <value>The maximum number of histograms that can be tracked. Each unique combination of provider name, histogram name, and dimension values counts as one histogram. Tracking more histograms uses more memory in the target process so this bound guards against unintentional high memory use.</value>
+    <comment>The description provided for the MaxHistograms parameter on MetricsOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_MetricsOptions_MaxTimeSeries" xml:space="preserve">
+    <value>The maximum number of time series that can be tracked. Each unique combination of provider name, metric name, and dimension values counts as one time series. Tracking more time series uses more memory in the target process so this bound guards against unintentional high memory use.</value>
+    <comment>The description provided for the MaxTimeSeries parameter on MetricsOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_EventMeterOptions_InstrumentName" xml:space="preserve">
+    <value>The name of the instrument to monitor.</value>
+    <comment>The description provided for the InstrumentName parameter on EventMeterOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_EventMeterOptions_GreaterThan" xml:space="preserve">
+    <value>The threshold level the instrument must maintain (or higher) for the specified duration. Either GreaterThan or LessThan (or both) must be specified.</value>
+    <comment>The description provided for the GreaterThan parameter on EventMeterOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_EventMeterOptions_HistogramPercentile" xml:space="preserve">
+    <value>When monitoring a histogram, this dictates which percentile to compare against using the value in GreaterThan/LessThan - by default, the percentile can be 50, 95, or 99.</value>
+    <comment>The description provided for the HistogramPercentile parameter on EventMeterOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_EventMeterOptions_LessThan" xml:space="preserve">
+    <value>The threshold level the instrument must maintain (or lower) for the specified duration. Either GreaterThan or LessThan (or both) must be specified.</value>
+    <comment>The description provided for the LessThan parameter on EventMeterOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_EventMeterOptions_MeterName" xml:space="preserve">
+    <value>The name of the meter that provides the instrument information.</value>
+    <comment>The description provided for the MeterName parameter on EventMeterOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_EventMeterOptions_SlidingWindowDuration" xml:space="preserve">
+    <value>The sliding time window in which the instrument must maintain its value as specified by the threshold levels in GreaterThan and LessThan.</value>
+    <comment>The description provided for the SlidingWindowDuration parameter on EventMeterOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_GlobalCounterOptions_Providers" xml:space="preserve">
+    <value>Dictionary of provider names and their global configuration.</value>
+  </data>
+  <data name="ErrorMessage_NestedProviderValidationError" xml:space="preserve">
+    <value>Provider '{0}' validation error: '{1}'</value>
+  </data>
+  <data name="DisplayAttributeDescription_AuthenticationOptions_AzureAd" xml:space="preserve">
+    <value>The parameters used to use configure authentication using Azure Active Directory.</value>
+    <comment>The description provided for the AzureAd parameter on AuthenticationOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_AzureAdOptions_AppIdUri" xml:space="preserve">
+    <value>The App ID URI of the app registration. Defaults to api://{ClientId} if not specified.</value>
+    <comment>The description provided for the AppIdUri parameter on AzureAdOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_AzureAdOptions_ClientId" xml:space="preserve">
+    <value>The unique application (client) id assigned to the app registration in Azure Active Directory.</value>
+    <comment>The description provided for the ClientId parameter on AzureAdOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_AzureAdOptions_Instance" xml:space="preserve">
+    <value>Specifies the Azure cloud instance users are signing in from. Can be either the Azure public cloud or one of the national clouds.</value>
+    <comment>The description provided for the Instance parameter on AzureAdOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_AzureAdOptions_RequiredRole" xml:space="preserve">
+    <value>The role required to be able to authenticate.</value>
+    <comment>The description provided for the RequiredRole parameter on AzureAdOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_AzureAdOptions_TenantId" xml:space="preserve">
+    <value>The tenant id of the Azure Active Directory tenant, or its tenant domain.</value>
+    <comment>The description provided for the TenantId parameter on AzureAdOptions.</comment>
+  </data>
+  <data name="ErrorMessage_MultipleAuthenticationModesSpecified" xml:space="preserve">
+    <value>Multiple authentication modes were configured. Only one may be set.</value>
+    <comment>Gets the format string for rejecting validation due to multiple authentication modes being specified in configuration. </comment>
+  </data>
+  <data name="DisplayAttributeDescription_CollectLiveMetricsOptions_Meters" xml:space="preserve">
+    <value>The array of meters for metrics to collect.</value>
+    <comment>The description provided for the Meters parameter on CollectLiveMetricsOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_MeterConfiguration_InstrumentNames" xml:space="preserve">
+    <value>Names of the custom instruments.</value>
+  </data>
+  <data name="DisplayAttributeDescription_MeterConfiguration_MeterName" xml:space="preserve">
+    <value>Name of the custom meter.</value>
+  </data>
+  <data name="DisplayAttributeDescription_MetricsOptions_Meters" xml:space="preserve">
+    <value>Names of meters to collect from the System.Diagnostics.Metrics provider.</value>
+  </data>
+  <data name="DisplayAttributeDescription_EgressOptions_FileSystem" xml:space="preserve">
+    <value>Mapping of file system egress provider names to their options.</value>
+  </data>
+  <data name="DisplayAttributeDescription_EgressOptions_Properties" xml:space="preserve">
+    <value>Additional properties, such as secrets, that can be referenced by the provider definitions.</value>
+  </data>
+  <data name="DisplayAttributeDescription_CallStacksOptions_Enabled" xml:space="preserve">
+    <value>Enables or disables the call stacks feature. By default, this feature is enabled if in-process features are enabled.</value>
+  </data>
+  <data name="DisplayAttributeDescription_ExceptionsOptions_Enabled" xml:space="preserve">
+    <value>Enables or disables the exceptions feature. By default, this feature is enabled if in-process features are enabled.</value>
+  </data>
+  <data name="DisplayAttributeDescription_InProcessFeaturesOptions_Exceptions" xml:space="preserve">
+    <value>Options for the in-process exceptions feature.</value>
+  </data>
+  <data name="DisplayAttributeDescription_ExceptionsOptions_TopLevelLimit" xml:space="preserve">
+    <value>The number of top-level exceptions to keep in the cache before automatically removing older exceptions. A top-level exception is one that is not an inner exception of another exception.</value>
+  </data>
+  <data name="DisplayAttributeDescription_CollectExceptionsOptions_Format" xml:space="preserve">
+    <value>The format used to display the exceptions.</value>
+  </data>
+  <data name="DisplayAttributeDescription_ParameterCapturingOptions_Enabled" xml:space="preserve">
+    <value>Enables or disables the parameter capturing feature. By default, this feature is not enabled.</value>
+  </data>
+  <data name="DisplayAttributeDescription_InProcessFeaturesOptions_CallStacks" xml:space="preserve">
+    <value>Options for the in-process call stacks feature.</value>
+  </data>
+  <data name="DisplayAttributeDescription_InProcessFeaturesOptions_ParameterCapturing" xml:space="preserve">
+    <value>Options for the in-process parameter capturing feature.</value>
+  </data>
+  <data name="DisplayAttributeDescription_ExceptionsOptions_CollectionFilters" xml:space="preserve">
+    <value>The filters that determine which exceptions should be included/excluded when collecting exceptions.</value>
+  </data>
+  <data name="DisplayAttributeDescription_CollectExceptionsOptions_Filters" xml:space="preserve">
+    <value>The filters that determine which exceptions should be included/excluded when collecting exceptions.</value>
+  </data>
+  <data name="DisplayAttributeDescription_MonitorApiKeyOptions_Issuer" xml:space="preserve">
+    <value>The expected value of the 'iss' or Issuer field in the JWT (JSON Web Token).</value>
+    <comment>The description provided for the Issuer parameter on MonitorApiKeyOptions.</comment>
+  </data>
+  <data name="DisplayAttributeDescription_CollectArtifactOptions_ArtifactName" xml:space="preserve">
+    <value>The name of the generated artifact.</value>
   </data>
 </root>

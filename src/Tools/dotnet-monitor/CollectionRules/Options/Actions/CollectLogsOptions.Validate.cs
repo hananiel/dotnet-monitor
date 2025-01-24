@@ -1,6 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
@@ -12,7 +11,7 @@ namespace Microsoft.Diagnostics.Monitoring.TestCommon.Options
 namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Options.Actions
 #endif
 {
-    partial class CollectLogsOptions :
+    partial record class CollectLogsOptions :
         IValidatableObject
     {
         IEnumerable<ValidationResult> IValidatableObject.Validate(ValidationContext validationContext)
@@ -30,14 +29,14 @@ namespace Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Options.Actions
                 // Validate that the category is not null and that the level is a valid level value.
                 foreach ((string category, LogLevel? level) in FilterSpecs)
                 {
-                    ValidationResult result = requiredAttribute.GetValidationResult(category, filterSpecsContext);
-                    if (result != ValidationResult.Success)
+                    ValidationResult? result = requiredAttribute.GetValidationResult(category, filterSpecsContext);
+                    if (!result.IsSuccess())
                     {
                         results.Add(result);
                     }
 
                     result = enumValidationAttribute.GetValidationResult(level, filterSpecsContext);
-                    if (result != ValidationResult.Success)
+                    if (!result.IsSuccess())
                     {
                         results.Add(result);
                     }

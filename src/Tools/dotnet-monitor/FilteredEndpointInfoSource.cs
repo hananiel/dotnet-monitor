@@ -1,6 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Monitoring.WebApi;
 using Microsoft.Diagnostics.NETCore.Client;
@@ -8,7 +7,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
@@ -51,7 +49,7 @@ namespace Microsoft.Diagnostics.Tools.Monitor
             // Filter out the current process based on the connection mode.
             if (RuntimeInfo.IsDiagnosticsEnabled)
             {
-                int pid = Process.GetCurrentProcess().Id;
+                int pid = Environment.ProcessId;
 
                 // Regardless of connection mode, can use the runtime instance cookie to filter self out.
                 try
@@ -63,8 +61,9 @@ namespace Microsoft.Diagnostics.Tools.Monitor
                         _runtimeInstanceCookieToFilterOut = runtimeInstanceCookie;
                     }
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
+                    clientSourceLogger.RuntimeInstanceCookieFailedToFilterSelf(ex);
                 }
 
                 // If connecting to runtime instances, filter self out. In listening mode, it's likely

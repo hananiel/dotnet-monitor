@@ -1,6 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Monitoring.TestCommon;
 using Microsoft.Diagnostics.Monitoring.TestCommon.Runners;
@@ -10,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -17,6 +17,7 @@ using Xunit.Abstractions;
 
 namespace Microsoft.Diagnostics.Monitoring.Tool.UnitTests
 {
+    [TargetFrameworkMonikerTrait(TargetFrameworkMonikerExtensions.CurrentTargetFrameworkMoniker)]
     public class EndpointInfoSourceTests
     {
         private readonly ITestOutputHelper _outputHelper;
@@ -54,7 +55,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.UnitTests
             var endpointInfos = await _endpointUtilities.GetEndpointInfoAsync(sourceHolder.Source);
             Assert.Empty(endpointInfos);
 
-            AppRunner runner = _endpointUtilities.CreateAppRunner(sourceHolder.TransportName, appTfm);
+            await using AppRunner runner = _endpointUtilities.CreateAppRunner(Assembly.GetExecutingAssembly(), sourceHolder.TransportName, appTfm);
 
             Task addedEndpointTask = callback.WaitAddedEndpointInfoAsync(runner, CommonTestTimeouts.StartProcess);
             Task removedEndpointTask = callback.WaitRemovedEndpointInfoAsync(runner, CommonTestTimeouts.StartProcess);
@@ -107,10 +108,12 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.UnitTests
             // Start all app instances
             for (int i = 0; i < appCount; i++)
             {
-                runners[i] = _endpointUtilities.CreateAppRunner(sourceHolder.TransportName, appTfm, appId: i + 1);
+                runners[i] = _endpointUtilities.CreateAppRunner(Assembly.GetExecutingAssembly(), sourceHolder.TransportName, appTfm, appId: i + 1);
                 addedEndpointTasks[i] = callback.WaitAddedEndpointInfoAsync(runners[i], CommonTestTimeouts.StartProcess);
                 removedEndpointTasks[i] = callback.WaitRemovedEndpointInfoAsync(runners[i], CommonTestTimeouts.StartProcess);
             }
+
+            await using IAsyncDisposable _ = runners.CreateItemDisposer();
 
             await runners.ExecuteAsync(async () =>
             {
@@ -165,7 +168,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.UnitTests
             MockDumpService dumpService = new(operationTrackerService);
             await using ServerSourceHolder sourceHolder = await _endpointUtilities.StartServerAsync(callback, dumpService, operationTrackerService);
 
-            AppRunner runner = _endpointUtilities.CreateAppRunner(sourceHolder.TransportName, appTfm);
+            await using AppRunner runner = _endpointUtilities.CreateAppRunner(Assembly.GetExecutingAssembly(), sourceHolder.TransportName, appTfm);
 
             Task<IEndpointInfo> addedEndpointTask = callback.WaitAddedEndpointInfoAsync(runner, CommonTestTimeouts.StartProcess);
             Task<IEndpointInfo> removedEndpointTask = callback.WaitRemovedEndpointInfoAsync(runner, CommonTestTimeouts.StartProcess);
@@ -201,13 +204,13 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.UnitTests
             dumpService.CompleteOperation();
             await dumpTask;
 
-            // Process should no longer exist
-            endpointInfos = await _endpointUtilities.GetEndpointInfoAsync(sourceHolder.Source);
-            Assert.Empty(endpointInfos);
-
-            // Test that process removal sent notification
+            // Wait for process removal notification; this may take a few seconds for process pruning to occur
             endpointInfo = await removedEndpointTask;
             Assert.Equal(processId, endpointInfo.ProcessId);
+
+            // Test that process should no longer exist
+            endpointInfos = await _endpointUtilities.GetEndpointInfoAsync(sourceHolder.Source);
+            Assert.Empty(endpointInfos);
         }
 
         private static void ValidateEndpointInfo(IEndpointInfo endpointInfo)

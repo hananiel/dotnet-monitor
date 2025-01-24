@@ -1,25 +1,24 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.AspNetCore.Http;
+using Microsoft.Diagnostics.Monitoring.TestCommon;
+using Microsoft.Diagnostics.Monitoring.TestCommon.Runners;
 using Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.Fixtures;
 using Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.HttpApi;
 using Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.Runners;
-using Microsoft.Diagnostics.Monitoring.TestCommon.Runners;
+using Microsoft.Diagnostics.Monitoring.WebApi;
+using Microsoft.Diagnostics.Tools.Monitor;
 using Microsoft.Extensions.DependencyInjection;
-using System;
 using System.Net;
 using System.Net.Http;
-using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
-using Microsoft.Diagnostics.Tools.Monitor;
-using Microsoft.Diagnostics.Monitoring.WebApi;
 
 namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
 {
+    [TargetFrameworkMonikerTrait(TargetFrameworkMonikerExtensions.CurrentTargetFrameworkMoniker)]
     [Collection(DefaultCollectionFixture.Name)]
     public class MetricsTests
     {
@@ -47,7 +46,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
 
             // Check that /metrics does not serve metrics
             var validationProblemDetailsException = await Assert.ThrowsAsync<ValidationProblemDetailsException>(
-                () => apiClient.GetMetricsAsync());
+                apiClient.GetMetricsAsync);
             Assert.Equal(HttpStatusCode.BadRequest, validationProblemDetailsException.StatusCode);
             Assert.Equal(StatusCodes.Status400BadRequest, validationProblemDetailsException.Details.Status);
         }
@@ -70,7 +69,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
 
             // Check that /metrics does not serve metrics
             var validationProblemDetailsException = await Assert.ThrowsAsync<ValidationProblemDetailsException>(
-                () => apiClient.GetMetricsAsync());
+                apiClient.GetMetricsAsync);
             Assert.Equal(HttpStatusCode.BadRequest, validationProblemDetailsException.StatusCode);
             Assert.Equal(StatusCodes.Status400BadRequest, validationProblemDetailsException.Details.Status);
         }
@@ -98,7 +97,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
 
             // Check that /metrics does not serve metrics
             var validationProblemDetailsException = await Assert.ThrowsAsync<ValidationProblemDetailsException>(
-                () => client.GetMetricsAsync());
+                client.GetMetricsAsync);
             Assert.Equal(HttpStatusCode.BadRequest, validationProblemDetailsException.StatusCode);
             Assert.Equal(StatusCodes.Status400BadRequest, validationProblemDetailsException.Details.Status);
         }
@@ -126,7 +125,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
 
             // Check that /metrics does not serve metrics
             var validationProblemDetailsException = await Assert.ThrowsAsync<ValidationProblemDetailsException>(
-                () => apiClient.GetMetricsAsync());
+                apiClient.GetMetricsAsync);
             Assert.Equal(HttpStatusCode.BadRequest, validationProblemDetailsException.StatusCode);
             Assert.Equal(StatusCodes.Status400BadRequest, validationProblemDetailsException.Details.Status);
         }

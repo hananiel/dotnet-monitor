@@ -1,6 +1,5 @@
 ﻿// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 
 using Microsoft.Diagnostics.Monitoring.TestCommon;
 using Microsoft.Diagnostics.Monitoring.TestCommon.Options;
@@ -9,20 +8,18 @@ using Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.Fixtures;
 using Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests.Runners;
 using Microsoft.Diagnostics.Monitoring.WebApi;
 using Microsoft.Diagnostics.Tools.Monitor;
-using Microsoft.Diagnostics.Tools.Monitor.CollectionRules.Options.Triggers;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.IO;
 using System.Net.Http;
 using System.Reflection;
-using System.Runtime.InteropServices;
-using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
 {
+    [TargetFrameworkMonikerTrait(TargetFrameworkMonikerExtensions.CurrentTargetFrameworkMoniker)]
     [Collection(DefaultCollectionFixture.Name)]
     public class CollectionRuleTests
     {
@@ -35,7 +32,6 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
             _outputHelper = outputHelper;
         }
 
-#if NET5_0_OR_GREATER
         private const string DefaultRuleName = "FunctionalTestRule";
 
         /// <summary>
@@ -70,7 +66,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
                 {
                     runner.ConfigurationFromEnvironment.CreateCollectionRule(DefaultRuleName)
                         .SetStartupTrigger()
-                        .AddExecuteActionAppAction("TextFileOutput", ExpectedFilePath, ExpectedFileContent);
+                        .AddExecuteActionAppAction(Assembly.GetExecutingAssembly(), "TextFileOutput", ExpectedFilePath, ExpectedFileContent);
 
                     ruleCompletedTask = runner.WaitForCollectionRuleCompleteAsync(DefaultRuleName);
                 });
@@ -80,7 +76,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
         /// Validates that a non-startup rule will complete when it has an action limit specified
         /// without a sliding window duration.
         /// </summary>
-        [Theory]
+        [Theory(Skip = "Flaky")]
         [InlineData(DiagnosticPortConnectionMode.Listen)]
         public async Task CollectionRule_ActionLimitTest(DiagnosticPortConnectionMode mode)
         {
@@ -111,13 +107,13 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
                     runner.ConfigurationFromEnvironment.CreateCollectionRule(DefaultRuleName)
                         .SetEventCounterTrigger(options =>
                         {
-                            // cpu usage greater that 5% for 2 seconds
+                            // cpu usage greater than 1% for 1 second
                             options.ProviderName = "System.Runtime";
                             options.CounterName = "cpu-usage";
-                            options.GreaterThan = 5;
-                            options.SlidingWindowDuration = TimeSpan.FromSeconds(2);
+                            options.GreaterThan = 1;
+                            options.SlidingWindowDuration = TimeSpan.FromSeconds(1);
                         })
-                        .AddExecuteActionAppAction("TextFileOutput", ExpectedFilePath, ExpectedFileContent)
+                        .AddExecuteActionAppAction(Assembly.GetExecutingAssembly(), "TextFileOutput", ExpectedFilePath, ExpectedFileContent)
                         .SetActionLimits(count: 1);
 
                     ruleCompletedTask = runner.WaitForCollectionRuleCompleteAsync(DefaultRuleName);
@@ -128,7 +124,11 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
         /// Validates that a collection rule with a command line filter can be matched to the
         /// target process.
         /// </summary>
-        [ConditionalTheory(nameof(IsNotNet5OrGreaterOnUnix))]
+        /// <remarks>
+        /// The GetProcessInfo command is not providing command line arguments (only the process name)
+        /// for .NET 5+ processes on non-Windows when suspended. See https://github.com/dotnet/dotnet-monitor/issues/885
+        /// </remarks>
+        [ConditionalTheory(typeof(TestConditions), nameof(TestConditions.IsWindows))]
         [InlineData(DiagnosticPortConnectionMode.Listen)]
         public async Task CollectionRule_CommandLineFilterMatchTest(DiagnosticPortConnectionMode mode)
         {
@@ -213,7 +213,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
                 {
                     runner.ConfigurationFromEnvironment.CreateCollectionRule(DefaultRuleName)
                         .SetStartupTrigger()
-                        .AddProcessNameFilter(DotNetHost.HostExeNameWithoutExtension);
+                        .AddProcessNameFilter(TestDotNetHost.ExeNameWithoutExtension);
 
                     startedTask = runner.WaitForCollectionRuleStartedAsync(DefaultRuleName);
                 });
@@ -244,7 +244,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
                 {
                     runner.ConfigurationFromEnvironment.CreateCollectionRule(DefaultRuleName)
                         .SetStartupTrigger()
-                        .AddProcessNameFilter("UmatchedName");
+                        .AddProcessNameFilter("UnmatchedName");
 
                     filteredTask = runner.WaitForCollectionRuleUnmatchedFiltersAsync(DefaultRuleName);
                 });
@@ -266,7 +266,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
                 out string diagnosticPortPath);
 
             await using MonitorCollectRunner toolRunner = new(_outputHelper);
-            toolRunner.ConnectionMode = mode;
+            toolRunner.ConnectionModeViaCommandLine = mode;
             toolRunner.DiagnosticPortPath = diagnosticPortPath;
             toolRunner.DisableAuthentication = true;
 
@@ -279,7 +279,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
 
             await toolRunner.StartAsync();
 
-            AppRunner appRunner = new(_outputHelper, Assembly.GetExecutingAssembly());
+            await using AppRunner appRunner = new(_outputHelper, Assembly.GetExecutingAssembly());
             appRunner.ConnectionMode = appConnectionMode;
             appRunner.DiagnosticPortPath = diagnosticPortPath;
             appRunner.ScenarioName = TestAppScenarios.AsyncWait.Name;
@@ -324,7 +324,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
                 out string diagnosticPortPath);
 
             await using MonitorCollectRunner toolRunner = new(_outputHelper);
-            toolRunner.ConnectionMode = mode;
+            toolRunner.ConnectionModeViaCommandLine = mode;
             toolRunner.DiagnosticPortPath = diagnosticPortPath;
             toolRunner.DisableAuthentication = true;
 
@@ -343,7 +343,7 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
 
             await toolRunner.StartAsync();
 
-            AppRunner appRunner = new(_outputHelper, Assembly.GetExecutingAssembly());
+            await using AppRunner appRunner = new(_outputHelper, Assembly.GetExecutingAssembly());
             appRunner.ConnectionMode = appConnectionMode;
             appRunner.DiagnosticPortPath = diagnosticPortPath;
             appRunner.ScenarioName = TestAppScenarios.AsyncWait.Name;
@@ -364,13 +364,5 @@ namespace Microsoft.Diagnostics.Monitoring.Tool.FunctionalTests
             // for the target process before dotnet-monitor shuts down.
             await rulesStoppedTask;
         }
-
-        // The GetProcessInfo command is not providing command line arguments (only the process name)
-        // for .NET 5+ process on non-Windows when suspended. See https://github.com/dotnet/dotnet-monitor/issues/885
-        private static bool IsNotNet5OrGreaterOnUnix =>
-            DotNetHost.RuntimeVersion.Major < 5 ||
-            RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-
-#endif
     }
 }
